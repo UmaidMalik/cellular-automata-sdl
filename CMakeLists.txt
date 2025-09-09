@@ -52,8 +52,25 @@ find_package(OpenGL REQUIRED)  # provides OpenGL::GL
 # ImGui needs SDL and glad headers during its own compilation
 target_link_libraries(imgui PUBLIC SDL3::SDL3-static glad)
 
-# App
-add_executable(CellularAutomata src/main.cpp)
+# App sources/headers
+file(GLOB_RECURSE CA_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
+file(GLOB_RECURSE CA_PRIV_HDR CONFIGURE_DEPENDS "src/*.h" "src/*.hpp")
+file(GLOB_RECURSE CA_HEADERS CONFIGURE_DEPENDS
+  "src/*.h" "src/*.hpp"
+  "include/**/*.h" "include/**/*.hpp"
+)
+
+add_executable(CellularAutomata ${CA_SOURCES} ${CA_PRIV_HDR} ${CA_HEADERS})
+
+# Your include paths (public if you plan to export headers)
+target_include_directories(CellularAutomata
+  PUBLIC  ${PROJECT_SOURCE_DIR}/include
+  PRIVATE ${PROJECT_SOURCE_DIR}/src
+)
+
+# Pretty groups in IDEs
+source_group(TREE "${PROJECT_SOURCE_DIR}/src"     FILES ${CA_SOURCES} ${CA_PRIV_HDR})
+source_group(TREE "${PROJECT_SOURCE_DIR}/include" FILES ${CA_PUB_HDR})
 
 # 🔗 Link libraries here (not in target_include_directories)
 target_link_libraries(CellularAutomata PRIVATE
