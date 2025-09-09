@@ -1,0 +1,72 @@
+cmake_minimum_required(VERSION 3.20)
+project(CellularAutomata LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# output dirs
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+foreach(cfg Debug Release RelWithDebInfo MinSizeRel)
+  string(TOUPPER ${cfg} CFG)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CFG} ${CMAKE_BINARY_DIR}/bin/${cfg})
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CFG} ${CMAKE_BINARY_DIR}/lib/${cfg})
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CFG} ${CMAKE_BINARY_DIR}/lib/${cfg})
+endforeach()
+
+# SDL3
+option(SDL_SHARED "Build shared SDL library" OFF)
+option(SDL_STATIC "Build static SDL library" ON)
+option(SDL_TEST "Build SDL test programs" OFF)
+add_subdirectory(thirdparty/SDL)  # provides SDL3::SDL3-static
+
+# ImGui (SDL3 + OpenGL3 backends)
+add_library(imgui STATIC
+    thirdparty/imgui/imgui.cpp
+    thirdparty/imgui/imgui_demo.cpp
+    thirdparty/imgui/imgui_draw.cpp
+    thirdparty/imgui/imgui_tables.cpp
+    thirdparty/imgui/imgui_widgets.cpp
+    thirdparty/imgui/backends/imgui_impl_sdl3.cpp
+    thirdparty/imgui/backends/imgui_impl_opengl3.cpp
+)
+target_include_directories(imgui PUBLIC
+    thirdparty/imgui
+    thirdparty/imgui/backends
+)
+# OpenGL + loader (GLAD) via FetchContent
+include(FetchContent)
+
+FetchContent_Declare(glad
+  URL https://github.com/Dav1dde/glad/archive/refs/tags/v0.1.36.zip
+)
+FetchContent_MakeAvailable(glad)   # provides target 'glad'
+
+# ImGui GL3 backend uses GLAD
+target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
+
+find_package(OpenGL REQUIRED)  # provides OpenGL::GL
+
+# ImGui needs SDL and glad headers during its own compilation
+target_link_libraries(imgui PUBLIC SDL3::SDL3-static glad)
+
+# App
+add_executable(CellularAutomata src/main.cpp)
+
+# 🔗 Link libraries here (not in target_include_directories)
+target_link_libraries(CellularAutomata PRIVATE
+    imgui
+    OpenGL::GL
+)
+
+if (WIN32)
+    target_link_libraries(CellularAutomata PRIVATE imm32 version winmm)
+elseif (APPLE)
+    find_library(COCOA_LIBRARY Cocoa)
+    target_link_libraries(CellularAutomata PRIVATE ${COCOA_LIBRARY})
+elseif (UNIX)
+    find_package(Threads REQUIRED)
+    target_link_libraries(CellularAutomata PRIVATE dl Threads::Threads)
+endif()
