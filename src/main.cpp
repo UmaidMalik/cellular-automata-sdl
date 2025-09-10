@@ -7,10 +7,13 @@
 #include "foo.hpp"
 #include "cell.hpp"
 #include <string>
+#include <random>
 
 int main()
 {
-
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dist(0, 255);
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
@@ -49,7 +52,7 @@ int main()
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        SDL_SetRenderDrawColor(renderer, 200, 0, 88, 255);
+        SDL_SetRenderDrawColor(renderer, dist(gen), dist(gen), dist(gen), 255);
         SDL_FRect rect = {100, 100, 200, 150};
         SDL_RenderFillRect(renderer, &rect);
         
