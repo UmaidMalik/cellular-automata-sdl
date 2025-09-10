@@ -36,15 +36,15 @@ int main()
         return -1;
     }
     
-    while (true) 
+    bool isRunning = true;
+    while (isRunning) 
     {
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
             if (event.type == SDL_EVENT_QUIT) 
             {
-                SDL_DestroyWindow(window);
-                return 0;
+                isRunning = false;
             }
         }
         
@@ -52,11 +52,17 @@ int main()
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        SDL_SetRenderDrawColor(renderer, dist(gen), dist(gen), dist(gen), 255);
-        SDL_FRect rect = {100, 100, 200, 150};
+        SDL_SetRenderDrawColor(renderer, 40, 34, 100, 255);
+        SDL_FRect rect = {100.0f, 100.0f, 200.0f, 150.0f};
         SDL_RenderFillRect(renderer, &rect);
+
+        SDL_SetRenderDrawColor(renderer, dist(gen), dist(gen), dist(gen), dist(gen));
+        SDL_FRect rect2 = {(float)dist(gen), (float)dist(gen), (float)dist(gen), (float)dist(gen)};
+        SDL_RenderFillRect(renderer, &rect2);
+
+        SDL_RenderPresent(renderer);
         
-        SDL_Delay(16); // ~60 FPS
+        SDL_Delay(500); // ~60 FPS
     }
 
     SDL_DestroyRenderer(renderer);
