@@ -6,6 +6,8 @@
 #include "imgui_impl_sdlgpu3.h"
 #include "foo.hpp"
 #include "cell.hpp"
+#include "game.hpp"
+#include "window.hpp"
 #include <string>
 #include <random>
 
@@ -15,24 +17,14 @@ int main()
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, 255);
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        std::cerr << "Failed to initialize SDL: " << SDL_GetError() << "\n";
-        return -1;
-    }
+    Window window(800, 600, "Cellular Automata");
+    window.InitWindow();
 
-    SDL_Window* window = SDL_CreateWindow("Colorful Cells", 800, 600, SDL_WINDOW_OPENGL);
-    if (!window)
-    {
-        std::cerr << "Failed to create window: " << SDL_GetError() << "\n";
-        return -1;
-    }
-
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, "OpenGL");
+    SDL_Renderer* renderer = SDL_CreateRenderer(window.GetSDLWindow(), "OpenGL");
     if (!renderer)
     {
         std::cerr << "Failed to create renderer: " << SDL_GetError() << "\n";
-        SDL_DestroyWindow(window);
+        SDL_DestroyWindow(window.GetSDLWindow());
         return -1;
     }
     
@@ -66,7 +58,6 @@ int main()
     }
 
     SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;
 }
