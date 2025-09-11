@@ -17,7 +17,7 @@ int main()
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, 255);
 
-    Window window(800, 600, "Cellular Automata");
+    Window window(1600, 900, "Cellular Automata");
     window.InitWindow();
 
     SDL_Renderer* renderer = SDL_CreateRenderer(window.GetSDLWindow(), "OpenGL");
