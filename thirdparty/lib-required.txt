@@ -1,0 +1,7 @@
+requires source of
+glad
+imgui
+sdl
+
+clone here
+will automate this with cmake later, rather then pushing thirdparty libraries on GitHub here
