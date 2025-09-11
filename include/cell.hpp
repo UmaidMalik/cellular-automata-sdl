@@ -1,7 +1,7 @@
 #pragma once
 
 
-enum state
+enum State
 {
     DEAD,
     ALIVE,
@@ -12,6 +12,6 @@ enum state
 
 struct Cell
 {
-    enum state;
+    State state;
     SDL_Color color;
 };
