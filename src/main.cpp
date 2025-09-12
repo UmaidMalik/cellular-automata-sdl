@@ -1,6 +1,5 @@
 #include <iostream>
 #include <SDL3/SDL.h>
-//#include <SDL3/SDL_opengl.h>
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
@@ -23,7 +22,14 @@ int main()
 
     // Setup Platform/Renderer backends
     // Create GPU Device
-    SDL_GPUDevice* gpu_device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_METALLIB, true, nullptr);
+    SDL_GPUDevice* gpu_device = SDL_CreateGPUDevice
+    (
+        SDL_GPU_SHADERFORMAT_SPIRV |
+        SDL_GPU_SHADERFORMAT_DXIL |
+        SDL_GPU_SHADERFORMAT_METALLIB,
+        true,
+        nullptr
+    );
     if (!gpu_device)
     {
         SDL_Log("Error: SDL_CreateGPUDevice(): %s\n", SDL_GetError());
