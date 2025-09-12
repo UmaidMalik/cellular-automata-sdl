@@ -34,7 +34,6 @@ int Window::CreateWindow(SDL_WindowFlags window_flags)
     this->m_main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     SDL_Log("Main scale: %f\n", m_main_scale); 
     m_sdl_window = SDL_CreateWindow(m_window_title, (int)(m_width * m_main_scale), (int)(m_height * m_main_scale), window_flags);
-
     if (!m_sdl_window)
     {
         SDL_Log("Error: SDL_CreateWindow(): %s\n", SDL_GetError()) ;
@@ -77,7 +76,14 @@ SDL_GPUDevice* Window::GetGPUDevice() const
 
 void Window::SetFullscreen(bool enable)
 {
+    SDL_Log("Setting fullscreen: %d\n", enable);
+    const Uint32 flags = SDL_GetWindowFlags(m_sdl_window);
+    const bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
+    if (enable == is_fullscreen)
+        return;
+    SDL_Log("Toggling fullscreen mode\n");
     SDL_SetWindowFullscreen(m_sdl_window, enable);
+    SDL_SyncWindow(m_sdl_window);
 }
 
 float Window::GetMainScale()
