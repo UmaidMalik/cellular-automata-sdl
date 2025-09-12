@@ -7,6 +7,7 @@
 #include "cell.hpp"
 #include "window.hpp"
 #include <string>
+#include <vector>
 #include <random>
 
 int main()
@@ -14,11 +15,17 @@ int main()
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, 255);
-
-
+    
+    int status = 0;
     Window window(1280, 720, "Cellular Automata");
-    window.InitWindow();
-    window.CreateWindow(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    status += window.InitWindow();
+    status += window.CreateWindow(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+
+    if (status != 0)
+    {
+        std::cerr << "Error: window() setup failed\n";
+        return -1;
+    }
 
     // Setup Platform/Renderer backends
     // Create GPU Device
@@ -225,6 +232,5 @@ int main()
     SDL_DestroyGPUDevice(gpu_device);
     SDL_DestroyWindow(window.GetSDLWindow());
 
-    SDL_Quit();
     return 0;
 }

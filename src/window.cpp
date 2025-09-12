@@ -15,6 +15,7 @@ Window::~Window()
         SDL_DestroyWindow(m_sdl_window);
         m_sdl_window = nullptr;
     }
+    SDL_Quit();
 }
 
 int Window::InitWindow()
