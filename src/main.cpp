@@ -15,12 +15,12 @@ int main()
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, 255);
-    
+
     int status = 0;
     Window window(1280, 720, "Cellular Automata");
     status += window.InitWindow();
     status += window.CreateWindow(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-
+    status += window.CreateGPUDevice();
     if (status != 0)
     {
         std::cerr << "Error: window() setup failed\n";

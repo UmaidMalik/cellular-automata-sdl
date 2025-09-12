@@ -46,9 +46,32 @@ int Window::CreateWindow(SDL_WindowFlags window_flags)
     return 0;
 }
 
+int Window::CreateGPUDevice()
+{
+    SDL_GPUDevice* gpu_device = SDL_CreateGPUDevice
+    (
+        SDL_GPU_SHADERFORMAT_SPIRV |
+        SDL_GPU_SHADERFORMAT_DXIL |
+        SDL_GPU_SHADERFORMAT_METALLIB,
+        true,
+        nullptr
+    );
+    if (!gpu_device)
+    {
+        SDL_Log("Error: SDL_CreateGPUDevice(): %s\n", SDL_GetError());
+        return -1;
+    }
+    return 0;
+}
+
 SDL_Window* Window::GetSDLWindow() const
 { 
     return m_sdl_window; 
+}
+
+SDL_GPUDevice* Window::GetGPUDevice() const
+{
+    return m_gpu_device;
 }
 
 void Window::SetFullscreen(bool enable)
