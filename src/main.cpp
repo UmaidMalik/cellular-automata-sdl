@@ -19,6 +19,7 @@ int main()
 
     Window window(1280, 720, "Cellular Automata");
     window.InitWindow();
+    window.CreateWindow();
 
     // Setup Platform/Renderer backends
     // Create GPU Device
@@ -80,14 +81,6 @@ int main()
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf");
     //IM_ASSERT(font != nullptr);
 
-
-    SDL_Renderer* renderer = SDL_CreateRenderer(window.GetSDLWindow(), "OpenGL");
-    if (!renderer)
-    {
-        std::cerr << "Failed to create renderer: " << SDL_GetError() << "\n";
-        SDL_DestroyWindow(window.GetSDLWindow());
-        return -1;
-    }
     
     bool show_demo_window = true;
     bool show_another_window = false;
@@ -109,7 +102,7 @@ int main()
             }
         }
 
-                // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppIterate() function]
+        // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppIterate() function]
         if (SDL_GetWindowFlags(window.GetSDLWindow()) & SDL_WINDOW_MINIMIZED)
         {
             SDL_Delay(10);
@@ -194,10 +187,10 @@ int main()
 
         // Submit the command buffer
         SDL_SubmitGPUCommandBuffer(command_buffer);
-        //SDL_Delay(500); // ~60 FPS
+        
         
         // Rendering code would go here
-        /*
+        /* DELETE this block
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
@@ -210,10 +203,8 @@ int main()
         SDL_RenderFillRect(renderer, &rect2);
 
         SDL_RenderPresent(renderer);
-
-        
-        SDL_Delay(500);
         */
+        
     }
 
     // Cleanup
@@ -226,7 +217,6 @@ int main()
     SDL_ReleaseWindowFromGPUDevice(gpu_device, window.GetSDLWindow());
     SDL_DestroyGPUDevice(gpu_device);
     SDL_DestroyWindow(window.GetSDLWindow());
-    SDL_DestroyRenderer(renderer);
 
     SDL_Quit();
     return 0;
