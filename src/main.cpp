@@ -116,8 +116,8 @@ int main()
         ImGui::NewFrame();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
+        //if (show_demo_window)
+        //    ImGui::ShowDemoWindow(&show_demo_window);
 
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
         {
@@ -152,6 +152,7 @@ int main()
             ImGui::End();
         }
 
+        
         // Rendering
         // (Your code clears your framebuffer, renders your other stuff etc.)
         ImGui::Render();
