@@ -48,7 +48,7 @@ int Window::CreateWindow(SDL_WindowFlags window_flags)
 
 int Window::CreateGPUDevice()
 {
-    SDL_GPUDevice* gpu_device = SDL_CreateGPUDevice
+    m_gpu_device = SDL_CreateGPUDevice
     (
         SDL_GPU_SHADERFORMAT_SPIRV |
         SDL_GPU_SHADERFORMAT_DXIL |
@@ -56,11 +56,12 @@ int Window::CreateGPUDevice()
         true,
         nullptr
     );
-    if (!gpu_device)
+    if (!m_gpu_device)
     {
         SDL_Log("Error: SDL_CreateGPUDevice(): %s\n", SDL_GetError());
         return -1;
     }
+    SDL_Log("GPU Device created sucessfully");
     return 0;
 }
 

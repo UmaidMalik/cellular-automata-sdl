@@ -27,29 +27,15 @@ int main()
         return -1;
     }
 
-    // Setup Platform/Renderer backends
-    // Create GPU Device
-    SDL_GPUDevice* gpu_device = SDL_CreateGPUDevice
-    (
-        SDL_GPU_SHADERFORMAT_SPIRV |
-        SDL_GPU_SHADERFORMAT_DXIL |
-        SDL_GPU_SHADERFORMAT_METALLIB,
-        true,
-        nullptr
-    );
-    if (!gpu_device)
-    {
-        SDL_Log("Error: SDL_CreateGPUDevice(): %s\n", SDL_GetError());
-        return -1;
-    }
+    
 
     // Claim window for GPU Device
-    if (!SDL_ClaimWindowForGPUDevice(gpu_device, window.GetSDLWindow()))
+    if (!SDL_ClaimWindowForGPUDevice(window.GetGPUDevice(), window.GetSDLWindow()))
     {
         SDL_Log("Error: SDL_ClaimWindowForGPUDevice(): %s\n", SDL_GetError());
         return -1;
     }
-    SDL_SetGPUSwapchainParameters(gpu_device, window.GetSDLWindow(), SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
+    SDL_SetGPUSwapchainParameters(window.GetGPUDevice(), window.GetSDLWindow(), SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -71,8 +57,8 @@ int main()
     // Setup Platform/Renderer backends
     ImGui_ImplSDL3_InitForSDLGPU(window.GetSDLWindow());
     ImGui_ImplSDLGPU3_InitInfo init_info = {};
-    init_info.Device = gpu_device;
-    init_info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(gpu_device, window.GetSDLWindow());
+    init_info.Device = window.GetGPUDevice();
+    init_info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(window.GetGPUDevice(), window.GetSDLWindow());
     init_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;                      // Only used in multi-viewports mode.
     init_info.SwapchainComposition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;  // Only used in multi-viewports mode.
     init_info.PresentMode = SDL_GPU_PRESENTMODE_VSYNC;
@@ -97,6 +83,7 @@ int main()
     
     bool show_demo_window = true;
     bool show_another_window = false;
+    bool set_fullscreen = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     bool is_running = true;
     while (is_running) 
@@ -142,6 +129,8 @@ int main()
             ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
             ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
             ImGui::Checkbox("Another Window", &show_another_window);
+            ImGui::Checkbox("Fullscreen", &set_fullscreen);
+
 
             ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
             ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
@@ -154,6 +143,10 @@ int main()
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::End();
         }
+
+        
+        window.SetFullscreen(set_fullscreen);
+        
 
         // 3. Show another simple window.
         if (show_another_window)
@@ -172,7 +165,7 @@ int main()
         ImDrawData* draw_data = ImGui::GetDrawData();
         const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
 
-        SDL_GPUCommandBuffer* command_buffer = SDL_AcquireGPUCommandBuffer(gpu_device); // Acquire a GPU command buffer
+        SDL_GPUCommandBuffer* command_buffer = SDL_AcquireGPUCommandBuffer(window.GetGPUDevice()); // Acquire a GPU command buffer
 
         SDL_GPUTexture* swapchain_texture;
         SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window.GetSDLWindow(), &swapchain_texture, nullptr, nullptr); // Acquire a swapchain texture
@@ -223,13 +216,13 @@ int main()
 
     // Cleanup
     // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppQuit() function]
-    SDL_WaitForGPUIdle(gpu_device);
+    SDL_WaitForGPUIdle(window.GetGPUDevice());
     ImGui_ImplSDL3_Shutdown();
     ImGui_ImplSDLGPU3_Shutdown();
     ImGui::DestroyContext();
 
-    SDL_ReleaseWindowFromGPUDevice(gpu_device, window.GetSDLWindow());
-    SDL_DestroyGPUDevice(gpu_device);
+    SDL_ReleaseWindowFromGPUDevice(window.GetGPUDevice(), window.GetSDLWindow());
+    SDL_DestroyGPUDevice(window.GetGPUDevice());
     SDL_DestroyWindow(window.GetSDLWindow());
 
     return 0;
