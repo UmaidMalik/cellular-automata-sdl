@@ -22,7 +22,7 @@ option(SDL_STATIC "Build static SDL library" ON)
 option(SDL_TEST "Build SDL test programs" OFF)
 add_subdirectory(thirdparty/SDL)  # provides SDL3::SDL3-static
 
-# ImGui (SDL3 + OpenGL3 backends)
+# ImGui (SDL_GPU backends)
 add_library(imgui STATIC
     thirdparty/imgui/imgui.cpp
     thirdparty/imgui/imgui_demo.cpp
@@ -30,7 +30,8 @@ add_library(imgui STATIC
     thirdparty/imgui/imgui_tables.cpp
     thirdparty/imgui/imgui_widgets.cpp
     thirdparty/imgui/backends/imgui_impl_sdl3.cpp
-    thirdparty/imgui/backends/imgui_impl_opengl3.cpp
+    thirdparty/imgui/backends/imgui_impl_sdlgpu3.cpp
+    #thirdparty/imgui/backends/imgui_impl_opengl3.cpp
 )
 target_include_directories(imgui PUBLIC
     thirdparty/imgui
