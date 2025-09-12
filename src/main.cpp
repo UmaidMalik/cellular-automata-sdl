@@ -19,7 +19,7 @@ int main()
 
     Window window(1280, 720, "Cellular Automata");
     window.InitWindow();
-    window.CreateWindow();
+    window.CreateWindow(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 
     // Setup Platform/Renderer backends
     // Create GPU Device
@@ -191,7 +191,7 @@ int main()
         
         
         // Rendering code would go here
-        /* DELETE this block
+        /* DELETE this blockSDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 

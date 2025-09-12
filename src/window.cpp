@@ -28,10 +28,8 @@ int Window::InitWindow()
     return 0;
 }
 
-int Window::CreateWindow()
+int Window::CreateWindow(SDL_WindowFlags window_flags)
 {
-
-    SDL_WindowFlags window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
     this->m_main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
     SDL_Log("Main scale: %f\n", m_main_scale); 
     m_sdl_window = SDL_CreateWindow(m_window_title, (int)(m_width * m_main_scale), (int)(m_height * m_main_scale), window_flags);

@@ -14,7 +14,7 @@ class Window
         Window(int width, int height, const char* title);
         ~Window();
         int InitWindow();
-        int CreateWindow();
+        int CreateWindow(SDL_WindowFlags window_flags);
         SDL_Window* GetSDLWindow() const;
         void SetFullscreen(bool enable);
         float GetMainScale();
