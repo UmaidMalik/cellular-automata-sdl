@@ -19,6 +19,12 @@ class Window
         int CreateGPUDevice();
         SDL_Window* GetSDLWindow() const;
         SDL_GPUDevice* GetGPUDevice() const;
+        int ClaimWindowForGPUDevice();
+        int SetGPUSwapchainParams
+        (
+            SDL_GPUSwapchainComposition swapchain_composition,
+            SDL_GPUPresentMode present_mode
+        );
         void SetFullscreen(bool enable);
         float GetMainScale();
 };

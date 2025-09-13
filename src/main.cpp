@@ -6,6 +6,7 @@
 #include "foo.hpp"
 #include "cell.hpp"
 #include "window.hpp"
+#include "imgui_manager.hpp"
 #include <string>
 #include <vector>
 #include <random>
@@ -21,48 +22,20 @@ int main()
     status += window.InitWindow();
     status += window.CreateWindow(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     status += window.CreateGPUDevice();
+    status += window.ClaimWindowForGPUDevice();
+    status += window.SetGPUSwapchainParams(SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
     if (status != 0)
     {
-        std::cerr << "Error: window() setup failed\n";
+        std::cerr << "Error: window setup failed\n";
         return -1;
     }
-
-    
-
-    // Claim window for GPU Device
-    if (!SDL_ClaimWindowForGPUDevice(window.GetGPUDevice(), window.GetSDLWindow()))
-    {
-        SDL_Log("Error: SDL_ClaimWindowForGPUDevice(): %s\n", SDL_GetError());
-        return -1;
-    }
-    SDL_SetGPUSwapchainParameters(window.GetGPUDevice(), window.GetSDLWindow(), SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
 
     // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsClassic();
-    //ImGui::StyleColorsLight();
-
-    // Setup scaling
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.ScaleAllSizes(window.GetMainScale()); // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
-    io.FontGlobalScale = window.GetMainScale(); // Set initial font scale. (using io.ConfigDpiScaleFonts=true makes this unnecessary. We leave both here for documentation purpose)
-    
-    // Setup Platform/Renderer backends
-    ImGui_ImplSDL3_InitForSDLGPU(window.GetSDLWindow());
-    ImGui_ImplSDLGPU3_InitInfo init_info = {};
-    init_info.Device = window.GetGPUDevice();
-    init_info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(window.GetGPUDevice(), window.GetSDLWindow());
-    init_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;                      // Only used in multi-viewports mode.
-    init_info.SwapchainComposition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;  // Only used in multi-viewports mode.
-    init_info.PresentMode = SDL_GPU_PRESENTMODE_VSYNC;
-    ImGui_ImplSDLGPU3_Init(&init_info);
+    ImGuiManager imgui_manager(&window);
+    imgui_manager.CreateAndSetupContext();
+    ImGuiIO* io = imgui_manager.GetIO();
+    imgui_manager.SetupScaling();
+    imgui_manager.SetupBackends();
 
     // Load Fonts
     // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -81,12 +54,12 @@ int main()
     //IM_ASSERT(font != nullptr);
 
     
-    bool show_demo_window = true;
+    bool show_demo_window = false;
     bool show_another_window = false;
     bool set_fullscreen = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     bool is_running = true;
-    while (is_running) 
+    while (is_running)
     {
         SDL_Event event;
         while (SDL_PollEvent(&event))
@@ -116,9 +89,10 @@ int main()
         ImGui::NewFrame();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        //if (show_demo_window)
-        //    ImGui::ShowDemoWindow(&show_demo_window);
-
+        if (show_demo_window)
+        {
+            ImGui::ShowDemoWindow(&show_demo_window);
+        }
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
         {
             static float f = 0.0f;
@@ -142,7 +116,7 @@ int main()
             ImGui::SameLine();
             ImGui::Text("counter = %d", counter);
 
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io->Framerate, io->Framerate);
             ImGui::End();
         }
 

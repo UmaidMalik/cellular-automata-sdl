@@ -1,17 +1,9 @@
 #pragma once
 
-
-enum State
-{
-    DEAD,
-    ALIVE,
-    AGING1,
-    AGING2,
-    AGING3
-};
-
 struct Cell
 {
-    State state;
-    SDL_Color color;
+    uint8_t state;
+    uint8_t color_r;
+    uint8_t color_g;
+    uint8_t color_b;
 };

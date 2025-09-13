@@ -90,3 +90,33 @@ float Window::GetMainScale()
 {
     return m_main_scale;
 }
+
+int Window::ClaimWindowForGPUDevice()
+{
+    if (!SDL_ClaimWindowForGPUDevice(m_gpu_device, m_sdl_window))
+    {
+        SDL_Log("Error: SDL_ClaimWindowForGPUDevice(): %s\n", SDL_GetError());
+        return -1;
+    }
+    return 0;
+}
+
+int Window::SetGPUSwapchainParams
+(
+    SDL_GPUSwapchainComposition swapchain_composition, 
+    SDL_GPUPresentMode present_mode
+)
+{
+    if(!SDL_SetGPUSwapchainParameters
+    (
+        m_gpu_device,
+        m_sdl_window,
+        SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
+        SDL_GPU_PRESENTMODE_VSYNC
+    ))
+    {
+        SDL_Log("Error: SDL_setGPUSwapchainParameters(): %s\n", SDL_GetError());
+        return -1;
+    }
+    return 0;
+}
