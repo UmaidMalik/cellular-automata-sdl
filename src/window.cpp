@@ -16,6 +16,7 @@ Window::~Window()
         m_sdl_window = nullptr;
     }
     SDL_Quit();
+    SDL_Log("~Window() destructor called and exited\n");
 }
 
 int Window::InitWindow()

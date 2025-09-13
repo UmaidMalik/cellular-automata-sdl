@@ -16,7 +16,7 @@ int main()
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, 255);
-
+    
     int status = 0;
     Window window(1280, 720, "Cellular Automata");
     status += window.InitWindow();
@@ -31,19 +31,22 @@ int main()
     }
 
     // Setup Dear ImGui context
-    ImGuiManager imgui_manager(&window);
-    imgui_manager.CreateAndSetupContext();
-    ImGuiIO* io = imgui_manager.GetIO();
-    imgui_manager.SetupScaling();
-    imgui_manager.SetupBackends();
-
-    bool show_demo_window = imgui_manager.m_show_demo_window;
-    bool show_another_window = false;
-    bool set_fullscreen = false;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-    bool is_running = true;
-    while (is_running)
     {
+        ImGuiManager imgui_manager(&window);
+        imgui_manager.CreateAndSetupContext();
+        ImGuiIO* io = imgui_manager.GetIO();
+        imgui_manager.SetupScaling();
+        imgui_manager.SetupBackends();
+
+        SDL_ShowWindow(window.GetSDLWindow());
+
+        bool show_demo_window = imgui_manager.m_show_demo_window;
+        bool show_another_window = false;
+        bool set_fullscreen = false;
+        ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+        bool is_running = true;
+        while (is_running)
+        {
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
@@ -89,8 +92,9 @@ int main()
                 window.SetFullscreen(set_fullscreen);
             }
 
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+            ImGui::SliderFloat("float", &f, 0.0f, 77.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
             ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+        
 
             if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
                 counter++;
@@ -110,13 +114,11 @@ int main()
             ImGui::End();
         }
 
-        
-
-        
         // Rendering
         // (Your code clears your framebuffer, renders your other stuff etc.)
-        ImGui::Render();
-        ImDrawData* draw_data = ImGui::GetDrawData();
+        imgui_manager.Render();
+        
+        auto* draw_data = imgui_manager.GetDrawData();
         const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
 
         SDL_GPUCommandBuffer* command_buffer = SDL_AcquireGPUCommandBuffer(window.GetGPUDevice()); // Acquire a GPU command buffer
@@ -130,6 +132,7 @@ int main()
             ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, command_buffer);
 
             // Setup and start a render pass
+            
             SDL_GPUColorTargetInfo target_info = {};
             target_info.texture = swapchain_texture;
             target_info.clear_color = SDL_FColor { clear_color.x, clear_color.y, clear_color.z, clear_color.w };
@@ -138,20 +141,18 @@ int main()
             target_info.mip_level = 0;
             target_info.layer_or_depth_plane = 0;
             target_info.cycle = false;
+            
             SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
-
             // Render ImGui
             ImGui_ImplSDLGPU3_RenderDrawData(draw_data, command_buffer, render_pass);
-
             SDL_EndGPURenderPass(render_pass);
         }
 
         // Submit the command buffer
         SDL_SubmitGPUCommandBuffer(command_buffer);
     
+        }
     }
-
-
     // Cleanup
     // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppQuit() function]
     SDL_WaitForGPUIdle(window.GetGPUDevice());

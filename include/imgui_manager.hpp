@@ -13,6 +13,7 @@ class ImGuiManager
         ImGuiIO* m_imgui_io = nullptr;
         ImGuiStyle* m_style = nullptr;
         Window* m_window = nullptr;
+        ImDrawData* m_draw_data = nullptr;
         ImGui_ImplSDLGPU3_InitInfo m_init_info{};
     private:
         void ShutdownBackends();
@@ -36,7 +37,9 @@ class ImGuiManager
         void LoadFonts(const char* font_path, float font_size);
         void ProcessEvent(SDL_Event* event);
         void StartNewFrame();  
-        void ShowDemoWindow(); 
+        void ShowDemoWindow();
+        void Render();
+        ImDrawData* GetDrawData();
 };
 
 inline ImGuiManager::ImGuiManager(Window* window) 
@@ -50,24 +53,26 @@ inline ImGuiManager::ImGuiManager(Window* window)
 
 inline ImGuiManager::~ImGuiManager()
 {
-    ImGui::DestroyContext();
+    if (!m_context)
+    {
+        return;
+    }
+
     if (m_window && m_window->GetSDLWindow())
     {
         SDL_WaitForGPUIdle(m_window->GetGPUDevice());
     }
 
     ShutdownBackends();
+    ImGui::SetCurrentContext(m_context);
+    ImGui::DestroyContext(m_context);
 
-    if (m_context)
-    {
-        ImGui::SetCurrentContext(m_context);
-        ImGui::DestroyContext(m_context);
-        m_context = nullptr;
-    }
-
+    m_context = nullptr;
     m_imgui_io = nullptr;
     m_style = nullptr;
-    m_window = nullptr;   
+    m_window = nullptr;
+
+    std::cout << "~ImGuiManager() destructor called and exited\n";
 }
 
 inline void ImGuiManager::CreateAndSetupContext()
@@ -187,4 +192,15 @@ inline void ImGuiManager::StartNewFrame()
 inline void ImGuiManager::ShowDemoWindow()
 {
     ImGui::ShowDemoWindow(&m_show_demo_window);
+}
+
+inline void ImGuiManager::Render()
+{
+    ImGui::Render();
+    m_draw_data = ImGui::GetDrawData();
+}
+
+inline ImDrawData* ImGuiManager::GetDrawData()
+{
+    return m_draw_data;
 }
