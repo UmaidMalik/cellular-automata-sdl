@@ -37,23 +37,6 @@ int main()
     imgui_manager.SetupScaling();
     imgui_manager.SetupBackends();
 
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return a nullptr. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
-    // - Read 'docs/FONTS.md' for more instructions and details. If you like the default font but want it to scale better, consider using the 'ProggyVector' from the same author!
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //style.FontSizeBase = 20.0f;
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf");
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf");
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf");
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf");
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf");
-    //IM_ASSERT(font != nullptr);
-
-    
     bool show_demo_window = false;
     bool show_another_window = false;
     bool set_fullscreen = false;
@@ -64,7 +47,7 @@ int main()
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
-            ImGui_ImplSDL3_ProcessEvent(&event); // Forward your event to backend
+            imgui_manager.ProcessEvent(&event);
             if (event.type == SDL_EVENT_QUIT) 
             {
                 is_running = false;
@@ -173,31 +156,14 @@ int main()
         // Submit the command buffer
         SDL_SubmitGPUCommandBuffer(command_buffer);
         
-        
-        // Rendering code would go here
-        /* DELETE this blockSDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-
-        SDL_SetRenderDrawColor(renderer, 40, 34, 100, 255);
-        SDL_FRect rect = {100.0f, 100.0f, 200.0f, 150.0f};
-        SDL_RenderFillRect(renderer, &rect);
-
-        SDL_SetRenderDrawColor(renderer, dist(gen), dist(gen), dist(gen), dist(gen));
-        SDL_FRect rect2 = {(float)dist(gen), (float)dist(gen), (float)dist(gen), (float)dist(gen)};
-        SDL_RenderFillRect(renderer, &rect2);
-
-        SDL_RenderPresent(renderer);
-        */
-        
+  
     }
 
     // Cleanup
     // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppQuit() function]
     SDL_WaitForGPUIdle(window.GetGPUDevice());
-    ImGui_ImplSDL3_Shutdown();
-    ImGui_ImplSDLGPU3_Shutdown();
-    ImGui::DestroyContext();
+
+    
 
     SDL_ReleaseWindowFromGPUDevice(window.GetGPUDevice(), window.GetSDLWindow());
     SDL_DestroyGPUDevice(window.GetGPUDevice());
