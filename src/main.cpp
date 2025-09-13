@@ -37,7 +37,7 @@ int main()
     imgui_manager.SetupScaling();
     imgui_manager.SetupBackends();
 
-    bool show_demo_window = false;
+    bool show_demo_window = imgui_manager.m_show_demo_window;
     bool show_another_window = false;
     bool set_fullscreen = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -67,14 +67,12 @@ int main()
 
         // (After event loop)
         // Start the Dear ImGui frame
-        ImGui_ImplSDLGPU3_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        ImGui::NewFrame();
+        imgui_manager.StartNewFrame();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
         {
-            ImGui::ShowDemoWindow(&show_demo_window);
+            imgui_manager.ShowDemoWindow();
         }
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
         {
@@ -155,9 +153,9 @@ int main()
 
         // Submit the command buffer
         SDL_SubmitGPUCommandBuffer(command_buffer);
-        
-  
+    
     }
+
 
     // Cleanup
     // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppQuit() function]

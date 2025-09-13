@@ -9,40 +9,76 @@
 class ImGuiManager
 {
     private:
-        ImGuiIO* m_imgui_io;
-        ImGuiStyle* m_style;
-        Window* m_window;
-        ImGui_ImplSDLGPU3_InitInfo m_init_info;
+        ImGuiContext* m_context = nullptr;
+        ImGuiIO* m_imgui_io = nullptr;
+        ImGuiStyle* m_style = nullptr;
+        Window* m_window = nullptr;
+        ImGui_ImplSDLGPU3_InitInfo m_init_info{};
+    private:
+        void ShutdownBackends();
+    public:
+        // NOTE: For learning ImGui, will delete when not needed
+        bool m_show_demo_window = false;
     public:
         ImGuiManager(Window* window);
         ~ImGuiManager();
+
+        // non-copyable / non-movable
+        //ImGuiManager(const ImGuiManager&) = delete;
+        //ImGuiManager& operator=(const ImGuiManager&) = delete;
+        //ImGuiManager(ImGuiManager&&) = delete;
+        //ImGuiManager& operator=(ImGuiManager&&) = delete;
+
         void CreateAndSetupContext();
         ImGuiIO* GetIO();
         void SetupScaling();
         void SetupBackends();
         void LoadFonts(const char* font_path, float font_size);
         void ProcessEvent(SDL_Event* event);
+        void StartNewFrame();  
+        void ShowDemoWindow(); 
 };
 
-ImGuiManager::ImGuiManager(Window* window) 
-    : m_imgui_io(nullptr), m_style(nullptr), m_window(window)
+inline ImGuiManager::ImGuiManager(Window* window) 
+    : m_window(window)
 {
-    m_init_info = {};
+    if (!m_window || !m_window->GetSDLWindow() || !m_window->GetGPUDevice())
+    {
+        throw std::runtime_error("ImGuiManager: window/device not ready");
+    }
 }
 
-ImGuiManager::~ImGuiManager()
+inline ImGuiManager::~ImGuiManager()
 {
-    m_imgui_io = nullptr;
-    ImGui_ImplSDL3_Shutdown();
-    ImGui_ImplSDLGPU3_Shutdown();
     ImGui::DestroyContext();
-    
+    if (m_window && m_window->GetSDLWindow())
+    {
+        SDL_WaitForGPUIdle(m_window->GetGPUDevice());
+    }
+
+    ShutdownBackends();
+
+    if (m_context)
+    {
+        ImGui::SetCurrentContext(m_context);
+        ImGui::DestroyContext(m_context);
+        m_context = nullptr;
+    }
+
+    m_imgui_io = nullptr;
+    m_style = nullptr;
+    m_window = nullptr;   
 }
 
-void ImGuiManager::CreateAndSetupContext()
+inline void ImGuiManager::CreateAndSetupContext()
 {
     IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
+    m_context = ImGui::CreateContext();
+    if (!m_context)
+    {
+        throw std::runtime_error("ImGuiManager: failed to create ImGui context");
+    }
+
     m_imgui_io = &ImGui::GetIO(); (void)m_imgui_io;
     m_imgui_io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     m_imgui_io->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
@@ -52,28 +88,31 @@ void ImGuiManager::CreateAndSetupContext()
     m_style = &ImGui::GetStyle();
 }
 
-ImGuiIO* ImGuiManager::GetIO()
+inline ImGuiIO* ImGuiManager::GetIO()
 {
     return m_imgui_io;
 }
 
-void ImGuiManager::SetupScaling()
+inline void ImGuiManager::SetupScaling()
 {
     if (!m_window)
     {
         std::cerr << "Error: ImGuiManager::SetupScaling(): window is null\n";
         return;
     }
+
     if (!m_style || !m_imgui_io)
     {
         std::cerr << "Error: ImGuiManager::SetupScaling(): ImGui context not initialized\n";
         return;
     }
-    m_style->ScaleAllSizes(m_window->GetMainScale()); // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
-    m_imgui_io->FontGlobalScale = m_window->GetMainScale(); // Set initial font scale. (using io.ConfigDpiScaleFonts=true makes this unnecessary. We leave both here for documentation purpose)
+
+    const float scale = m_window->GetMainScale();
+    m_style->ScaleAllSizes(scale); // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
+    m_imgui_io->FontGlobalScale = scale; // Set initial font scale. (using io.ConfigDpiScaleFonts=true makes this unnecessary. We leave both here for documentation purpose)
 }
 
-void ImGuiManager::SetupBackends()
+inline void ImGuiManager::SetupBackends()
 {
     if (!m_window)
     {
@@ -81,7 +120,13 @@ void ImGuiManager::SetupBackends()
         return;
     }
 
-    ImGui_ImplSDL3_InitForSDLGPU(m_window->GetSDLWindow());
+    if (!ImGui_ImplSDL3_InitForSDLGPU(m_window->GetSDLWindow()))
+    {
+        std::cerr << "Error: ImGui_ImplSDL3_InitForSDLGPU() failed\n";
+        return;
+    }
+
+    m_init_info = {};
     m_init_info.Device = m_window->GetGPUDevice();
     m_init_info.ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat
     (
@@ -91,10 +136,16 @@ void ImGuiManager::SetupBackends()
     m_init_info.MSAASamples = SDL_GPU_SAMPLECOUNT_1;                      // Only used in multi-viewports mode.
     m_init_info.SwapchainComposition = SDL_GPU_SWAPCHAINCOMPOSITION_SDR;  // Only used in multi-viewports mode.
     m_init_info.PresentMode = SDL_GPU_PRESENTMODE_VSYNC;
-    ImGui_ImplSDLGPU3_Init(&m_init_info);
+    
+    if (!ImGui_ImplSDLGPU3_Init(&m_init_info))
+    {
+        std::cerr << "Error: ImGui_ImplSDLGPU3_Init() failed\n";
+        ImGui_ImplSDL3_Shutdown();
+        return;
+    }
 }
 
-void ImGuiManager::LoadFonts(const char* font_path, float font_size)
+inline void ImGuiManager::LoadFonts(const char* font_path, float font_size)
 {
     // Load Fonts
     // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -114,7 +165,26 @@ void ImGuiManager::LoadFonts(const char* font_path, float font_size)
 
 }
 
-void ImGuiManager::ProcessEvent(SDL_Event* event)
+inline void ImGuiManager::ProcessEvent(SDL_Event* event)
 {
     ImGui_ImplSDL3_ProcessEvent(event);
+}
+
+inline void ImGuiManager::ShutdownBackends()
+{
+    ImGui_ImplSDLGPU3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+}
+
+inline void ImGuiManager::StartNewFrame()
+{
+    ImGui_ImplSDLGPU3_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
+}
+
+// NOTE: For learning ImGui, will delete when not needed
+inline void ImGuiManager::ShowDemoWindow()
+{
+    ImGui::ShowDemoWindow(&m_show_demo_window);
 }
