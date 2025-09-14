@@ -60,7 +60,6 @@ int main()
             
             auto* draw_data = imgui_manager.GetDrawData();
             const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
-
             /*
                 rects.BeginFrame();
                 {
@@ -74,14 +73,11 @@ int main()
                 rects.Upload(command_buffer)
             */
            imgui_manager.Prepare(renderer.GetCommandBuffer());
-
             // Uint32 fbW=0, fbH=0;
             renderer.AcquireSwapchainTexture();
             auto* swapchain_texture = renderer.GetSwapchainTexture();
-            
             if (swapchain_texture != nullptr && !is_minimized)
             {
-                // Setup and start a render pass
                 renderer.SetColorTargetInfo(ImVec4(0.45f, 0.55f, 0.60f, 1.00f));
                 renderer.BeginRenderPass();
                 /*
@@ -93,6 +89,5 @@ int main()
             renderer.SubmitCommandBuffer();
         }
     }
-    
     return 0;
 }
