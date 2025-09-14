@@ -8,6 +8,7 @@
 #include "window.hpp"
 #include "imgui_manager.hpp"
 #include "event_handler.hpp"
+#include "renderer.hpp"
 #include <string>
 #include <vector>
 #include <random>
@@ -40,6 +41,9 @@ int main()
 
         EventHandler event_handler(&window, &imgui_manager);
         SDL_ShowWindow(window.GetSDLWindow());
+        
+        Renderer renderer(&window);
+
         window.StartRun();
         while (window.IsRunning())
         {
@@ -65,40 +69,28 @@ int main()
                     rectc.Add(r, fbW, fbH)
                 }
             */
-
-            SDL_GPUCommandBuffer* command_buffer = SDL_AcquireGPUCommandBuffer(window.GetGPUDevice());
-            
+            renderer.AcquireCommandBuffer();
             /*
                 rects.Upload(command_buffer)
             */
-           imgui_manager.Prepare(command_buffer);
+           imgui_manager.Prepare(renderer.GetCommandBuffer());
 
-            SDL_GPUTexture* swapchain_texture;
             // Uint32 fbW=0, fbH=0;
-            SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window.GetSDLWindow(), &swapchain_texture, nullptr, nullptr);
+            renderer.AcquireSwapchainTexture();
+            auto* swapchain_texture = renderer.GetSwapchainTexture();
             
             if (swapchain_texture != nullptr && !is_minimized)
             {
                 // Setup and start a render pass
-                SDL_GPUColorTargetInfo target_info = {};
-                target_info.texture = swapchain_texture;
-                target_info.clear_color = SDL_FColor { 0.45f, 0.55f, 0.60f, 1.00f }; // ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-                target_info.load_op = SDL_GPU_LOADOP_CLEAR;
-                target_info.store_op = SDL_GPU_STOREOP_STORE;
-                target_info.mip_level = 0;
-                target_info.layer_or_depth_plane = 0;
-                target_info.cycle = false;
-                
-                SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
-                
+                renderer.SetColorTargetInfo(ImVec4(0.45f, 0.55f, 0.60f, 1.00f));
+                renderer.BeginRenderPass();
                 /*
                 rects.Draw(render_pass);
                 */
-                
-                imgui_manager.Draw(render_pass, command_buffer);
-                SDL_EndGPURenderPass(render_pass);
+                imgui_manager.Draw(renderer.GetRenderPass(), renderer.GetCommandBuffer());
+                renderer.EndRenderPass();
             }
-            SDL_SubmitGPUCommandBuffer(command_buffer);
+            renderer.SubmitCommandBuffer();
         }
     }
     
