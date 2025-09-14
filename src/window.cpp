@@ -10,12 +10,20 @@ Window::Window(int width, int height, const char* title)
 
 Window::~Window()
 {
-    if (m_sdl_window)
+    if (!m_sdl_window)
     {
-        SDL_DestroyWindow(m_sdl_window);
-        m_sdl_window = nullptr;
+        return;
     }
+    // Cleanup
+    // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppQuit() function]
+  
+    SDL_WaitForGPUIdle(m_gpu_device);
+    SDL_ReleaseWindowFromGPUDevice(m_gpu_device, m_sdl_window);
+    SDL_DestroyGPUDevice(m_gpu_device);
+
+    SDL_DestroyWindow(m_sdl_window);
     SDL_Quit();
+
     SDL_Log("~Window() destructor called and exited\n");
 }
 

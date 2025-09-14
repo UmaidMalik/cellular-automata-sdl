@@ -153,15 +153,6 @@ int main()
     
         }
     }
-    // Cleanup
-    // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppQuit() function]
-    SDL_WaitForGPUIdle(window.GetGPUDevice());
-
     
-
-    SDL_ReleaseWindowFromGPUDevice(window.GetGPUDevice(), window.GetSDLWindow());
-    SDL_DestroyGPUDevice(window.GetGPUDevice());
-    SDL_DestroyWindow(window.GetSDLWindow());
-
     return 0;
 }
