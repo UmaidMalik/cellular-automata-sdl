@@ -57,15 +57,29 @@ int main()
             auto* draw_data = imgui_manager.GetDrawData();
             const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
 
-            SDL_GPUCommandBuffer* command_buffer = SDL_AcquireGPUCommandBuffer(window.GetGPUDevice());
-            SDL_GPUTexture* swapchain_texture;
-            SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window.GetSDLWindow(), &swapchain_texture, nullptr, nullptr);
+            /*
+                rects.BeginFrame();
+                {
+                for loop
+                    Rect r {};
+                    rectc.Add(r, fbW, fbH)
+                }
+            */
 
+            SDL_GPUCommandBuffer* command_buffer = SDL_AcquireGPUCommandBuffer(window.GetGPUDevice());
+            
+            /*
+                rects.Upload(command_buffer)
+            */
+           imgui_manager.Prepare(command_buffer);
+
+            SDL_GPUTexture* swapchain_texture;
+            // Uint32 fbW=0, fbH=0;
+            SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window.GetSDLWindow(), &swapchain_texture, nullptr, nullptr);
+            
             if (swapchain_texture != nullptr && !is_minimized)
             {
-                imgui_manager.Prepare(command_buffer);
                 // Setup and start a render pass
-                
                 SDL_GPUColorTargetInfo target_info = {};
                 target_info.texture = swapchain_texture;
                 target_info.clear_color = SDL_FColor { 0.45f, 0.55f, 0.60f, 1.00f }; // ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -76,6 +90,11 @@ int main()
                 target_info.cycle = false;
                 
                 SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
+                
+                /*
+                rects.Draw(render_pass);
+                */
+                
                 imgui_manager.Draw(render_pass, command_buffer);
                 SDL_EndGPURenderPass(render_pass);
             }
