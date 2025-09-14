@@ -16,7 +16,7 @@ int main()
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, 255);
-    
+
     int status = 0;
     Window window(1280, 720, "Cellular Automata");
     status += window.InitWindow();
@@ -70,8 +70,8 @@ int main()
 
         // (After event loop)
         // Start the Dear ImGui frame
-        imgui_manager.StartNewFrame();
-
+        imgui_manager.BeginFrame();
+        
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
         {
@@ -104,19 +104,10 @@ int main()
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io->Framerate, io->Framerate);
             ImGui::End();
         }
-        // 3. Show another simple window.
-        if (show_another_window)
-        {
-            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me"))
-                show_another_window = false;
-            ImGui::End();
-        }
 
         // Rendering
         // (Your code clears your framebuffer, renders your other stuff etc.)
-        imgui_manager.Render();
+        imgui_manager.EndFrame();
         
         auto* draw_data = imgui_manager.GetDrawData();
         const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
@@ -128,9 +119,7 @@ int main()
 
         if (swapchain_texture != nullptr && !is_minimized)
         {
-            // This is mandatory: call ImGui_ImplSDLGPU3_PrepareDrawData() to upload the vertex/index buffer!
-            ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, command_buffer);
-
+            imgui_manager.Prepare(command_buffer);
             // Setup and start a render pass
             
             SDL_GPUColorTargetInfo target_info = {};
@@ -143,8 +132,7 @@ int main()
             target_info.cycle = false;
             
             SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
-            // Render ImGui
-            ImGui_ImplSDLGPU3_RenderDrawData(draw_data, command_buffer, render_pass);
+            imgui_manager.Draw(render_pass, command_buffer);
             SDL_EndGPURenderPass(render_pass);
         }
 

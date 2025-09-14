@@ -36,9 +36,13 @@ class ImGuiManager
         void SetupBackends();
         void LoadFonts(const char* font_path, float font_size);
         void ProcessEvent(SDL_Event* event);
-        void StartNewFrame();  
+        void BeginFrame();
+        void Build();
+        void Prepare(SDL_GPUCommandBuffer* command);
+        void Draw(SDL_GPURenderPass* render_pass, SDL_GPUCommandBuffer* command_buffer);
+        void Prepare();
         void ShowDemoWindow();
-        void Render();
+        void EndFrame();
         ImDrawData* GetDrawData();
 };
 
@@ -181,11 +185,27 @@ inline void ImGuiManager::ShutdownBackends()
     ImGui_ImplSDL3_Shutdown();
 }
 
-inline void ImGuiManager::StartNewFrame()
+inline void ImGuiManager::BeginFrame()
 {
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
+}
+
+inline void ImGuiManager::Build()
+{
+
+}
+
+inline void ImGuiManager::Prepare(SDL_GPUCommandBuffer* command_buffer)
+{
+    ImGui_ImplSDLGPU3_PrepareDrawData(m_draw_data, command_buffer);
+
+}
+
+inline void ImGuiManager::Draw(SDL_GPURenderPass* render_pass, SDL_GPUCommandBuffer* command_buffer)
+{
+    ImGui_ImplSDLGPU3_RenderDrawData(m_draw_data, command_buffer, render_pass);
 }
 
 // NOTE: For learning ImGui, will delete when not needed
@@ -194,7 +214,7 @@ inline void ImGuiManager::ShowDemoWindow()
     ImGui::ShowDemoWindow(&m_show_demo_window);
 }
 
-inline void ImGuiManager::Render()
+inline void ImGuiManager::EndFrame()
 {
     ImGui::Render();
     m_draw_data = ImGui::GetDrawData();
