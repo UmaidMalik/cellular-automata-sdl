@@ -11,6 +11,7 @@ class Window
         SDL_Window* m_sdl_window;
         SDL_GPUDevice* m_gpu_device;
         float m_main_scale;
+        bool m_running;
     public:
         Window(int width, int height, const char* title);
         ~Window();
@@ -27,4 +28,7 @@ class Window
         );
         void SetFullscreen(bool enable);
         float GetMainScale();
+        void StartRun();
+        void EndRun();
+        bool IsRunning();
 };

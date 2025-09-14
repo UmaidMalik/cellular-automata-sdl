@@ -128,3 +128,18 @@ int Window::SetGPUSwapchainParams
     }
     return 0;
 }
+
+void Window::StartRun()
+{
+    m_running = true;
+}
+
+void Window::EndRun()
+{
+    m_running = false;
+}
+
+bool Window::IsRunning()
+{
+    return m_running;
+}
