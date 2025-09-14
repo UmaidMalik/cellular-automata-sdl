@@ -14,9 +14,8 @@ Window::~Window()
     {
         return;
     }
-    // Cleanup
+
     // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppQuit() function]
-  
     SDL_WaitForGPUIdle(m_gpu_device);
     SDL_ReleaseWindowFromGPUDevice(m_gpu_device, m_sdl_window);
     SDL_DestroyGPUDevice(m_gpu_device);
