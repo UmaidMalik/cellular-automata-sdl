@@ -40,104 +40,68 @@ int main()
 
         SDL_ShowWindow(window.GetSDLWindow());
 
-        bool show_demo_window = imgui_manager.m_show_demo_window;
-        bool show_another_window = false;
-        bool set_fullscreen = false;
         ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
         bool is_running = true;
+        SDL_Event event;
         while (is_running)
         {
-        SDL_Event event;
-        while (SDL_PollEvent(&event))
-        {
-            imgui_manager.ProcessEvent(&event);
-            if (event.type == SDL_EVENT_QUIT) 
+            while (SDL_PollEvent(&event))
             {
-                is_running = false;
-            }
-            if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED && event.window.windowID == SDL_GetWindowID(window.GetSDLWindow()))
-            {
-                is_running = false;
-            }
-        }
+                imgui_manager.ProcessEvent(&event);
+                if (event.type == SDL_EVENT_QUIT) 
+                {
+                    is_running = false;
+                }
+                if(event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
+                    event.window.windowID == SDL_GetWindowID(window.GetSDLWindow()))
+                {
+                    is_running = false;
+                }
 
-        // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppIterate() function]
-        if (SDL_GetWindowFlags(window.GetSDLWindow()) & SDL_WINDOW_MINIMIZED)
-        {
-            SDL_Delay(10);
-            continue;
-        }
-
-        // (After event loop)
-        // Start the Dear ImGui frame
-        imgui_manager.BeginFrame();
-        
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (show_demo_window)
-        {
-            imgui_manager.ShowDemoWindow();
-        }
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-        {
-            static float f = 0.0f;
-            static int8_t counter = 120;
-
-            ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-            ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
-            ImGui::Checkbox("Another Window", &show_another_window);
-            if (ImGui::Checkbox("Fullscreen", &set_fullscreen))
-            {
-                window.SetFullscreen(set_fullscreen);
             }
 
-            ImGui::SliderFloat("float", &f, 0.0f, 77.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-        
+            // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppIterate() function]
+            if (SDL_GetWindowFlags(window.GetSDLWindow()) & SDL_WINDOW_MINIMIZED)
+            {
+                SDL_Delay(10);
+                continue;
+            }
 
-            if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
-            ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
-
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io->Framerate, io->Framerate);
-            ImGui::End();
-        }
-
-        // Rendering
-        // (Your code clears your framebuffer, renders your other stuff etc.)
-        imgui_manager.EndFrame();
-        
-        auto* draw_data = imgui_manager.GetDrawData();
-        const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
-
-        SDL_GPUCommandBuffer* command_buffer = SDL_AcquireGPUCommandBuffer(window.GetGPUDevice()); // Acquire a GPU command buffer
-
-        SDL_GPUTexture* swapchain_texture;
-        SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window.GetSDLWindow(), &swapchain_texture, nullptr, nullptr); // Acquire a swapchain texture
-
-        if (swapchain_texture != nullptr && !is_minimized)
-        {
-            imgui_manager.Prepare(command_buffer);
-            // Setup and start a render pass
+            // (After event loop)
+            // Start the Dear ImGui frame
+            imgui_manager.BeginFrame();
+            imgui_manager.Build();
+            // (Your code clears your framebuffer, renders your other stuff etc.)
+            imgui_manager.EndFrame();
             
-            SDL_GPUColorTargetInfo target_info = {};
-            target_info.texture = swapchain_texture;
-            target_info.clear_color = SDL_FColor { clear_color.x, clear_color.y, clear_color.z, clear_color.w };
-            target_info.load_op = SDL_GPU_LOADOP_CLEAR;
-            target_info.store_op = SDL_GPU_STOREOP_STORE;
-            target_info.mip_level = 0;
-            target_info.layer_or_depth_plane = 0;
-            target_info.cycle = false;
-            
-            SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
-            imgui_manager.Draw(render_pass, command_buffer);
-            SDL_EndGPURenderPass(render_pass);
-        }
+            auto* draw_data = imgui_manager.GetDrawData();
+            const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
 
-        // Submit the command buffer
-        SDL_SubmitGPUCommandBuffer(command_buffer);
+            SDL_GPUCommandBuffer* command_buffer = SDL_AcquireGPUCommandBuffer(window.GetGPUDevice());
+            SDL_GPUTexture* swapchain_texture;
+            SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window.GetSDLWindow(), &swapchain_texture, nullptr, nullptr);
+
+            if (swapchain_texture != nullptr && !is_minimized)
+            {
+                imgui_manager.Prepare(command_buffer);
+                // Setup and start a render pass
+                
+                SDL_GPUColorTargetInfo target_info = {};
+                target_info.texture = swapchain_texture;
+                target_info.clear_color = SDL_FColor { clear_color.x, clear_color.y, clear_color.z, clear_color.w };
+                target_info.load_op = SDL_GPU_LOADOP_CLEAR;
+                target_info.store_op = SDL_GPU_STOREOP_STORE;
+                target_info.mip_level = 0;
+                target_info.layer_or_depth_plane = 0;
+                target_info.cycle = false;
+                
+                SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
+                imgui_manager.Draw(render_pass, command_buffer);
+                SDL_EndGPURenderPass(render_pass);
+            }
+
+            // Submit the command buffer
+            SDL_SubmitGPUCommandBuffer(command_buffer);
     
         }
     }

@@ -6,6 +6,12 @@
 #include "window.hpp"
 #include <iostream>
 
+struct UIControl
+{
+    bool show_demo_window = false;
+    bool set_fullscreen = false;
+};
+
 class ImGuiManager
 {
     private:
@@ -15,11 +21,9 @@ class ImGuiManager
         Window* m_window = nullptr;
         ImDrawData* m_draw_data = nullptr;
         ImGui_ImplSDLGPU3_InitInfo m_init_info{};
+        UIControl m_ui_control;
     private:
         void ShutdownBackends();
-    public:
-        // NOTE: For learning ImGui, will delete when not needed
-        bool m_show_demo_window = false;
     public:
         ImGuiManager(Window* window);
         ~ImGuiManager();
@@ -194,7 +198,37 @@ inline void ImGuiManager::BeginFrame()
 
 inline void ImGuiManager::Build()
 {
+    if (m_ui_control.show_demo_window)
+    {
+        ShowDemoWindow();
+    }
+    
+    {
+        static float f = 0.0f;
+        static int8_t counter = 120;
 
+        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+        ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+        ImGui::Checkbox("Demo Window", & m_ui_control.show_demo_window);      // Edit bools storing our window open/close state
+        if (ImGui::Checkbox("Fullscreen", &m_ui_control.set_fullscreen))
+        {
+            m_window->SetFullscreen(m_ui_control.set_fullscreen);
+        }
+
+        ImGui::SliderFloat("float", &f, 0.0f, 77.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+        //ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
+    
+        if (ImGui::Button("Button"))
+        {
+            counter++;
+        }
+        ImGui::SameLine();
+        ImGui::Text("counter = %d", counter);
+
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / m_imgui_io->Framerate, m_imgui_io->Framerate);
+        ImGui::End();
+    }
 }
 
 inline void ImGuiManager::Prepare(SDL_GPUCommandBuffer* command_buffer)
@@ -211,7 +245,7 @@ inline void ImGuiManager::Draw(SDL_GPURenderPass* render_pass, SDL_GPUCommandBuf
 // NOTE: For learning ImGui, will delete when not needed
 inline void ImGuiManager::ShowDemoWindow()
 {
-    ImGui::ShowDemoWindow(&m_show_demo_window);
+    ImGui::ShowDemoWindow(&m_ui_control.show_demo_window);
 }
 
 inline void ImGuiManager::EndFrame()
