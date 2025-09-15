@@ -9,19 +9,24 @@
 class AutomataSimulator
 {
     private:
-        uint16_t m_width;
-        uint16_t m_height;
-        uint8_t m_range;
+        int m_width;
+        int m_height;
+        int m_range;
+        int m_born;
+        int m_survive;
         std::vector<Cell> m_grid;
     public:
-        AutomataSimulator(uint16_t w, uint16_t h, uint8_t r);
+        AutomataSimulator(int w, int h, int r);
         ~AutomataSimulator();
         void DebugPrint();
-        static math::ivec2 GetPosition(int idx, uint16_t width);
-        static int GetIndex(math::ivec2 v, uint16_t width);
+        void SetRule(int born, int survive);
+        void Step();
+        void CheckNeighbors(int idx);
+        static math::ivec2 GetPosition(int idx, int width);
+        static int GetIndex(math::ivec2 v, int width);
 };
 
-AutomataSimulator::AutomataSimulator(uint16_t w, uint16_t h, uint8_t r)
+AutomataSimulator::AutomataSimulator(int w, int h, int r)
     : m_width(w), m_height(h), m_range(r)
 {
     m_grid.resize(m_width * m_height);
@@ -46,7 +51,24 @@ void AutomataSimulator::DebugPrint()
     std::cout << "\n";
 }
 
-math::ivec2 AutomataSimulator::GetPosition(int idx, uint16_t width)
+void AutomataSimulator::SetRule(int born, int survive)
+{
+    
+}
+
+void AutomataSimulator::Step()
+{
+
+}
+
+void AutomataSimulator::CheckNeighbors(int idx)
+{
+    math::ivec2 grid_pos = GetPosition(idx, m_width);
+    int x = grid_pos.x, y = grid_pos.y;
+
+}
+
+math::ivec2 AutomataSimulator::GetPosition(int idx, int width)
 {
 	int x = idx % width;
 	int y = idx / width;
@@ -54,7 +76,7 @@ math::ivec2 AutomataSimulator::GetPosition(int idx, uint16_t width)
 	return v;
 }
 
-int AutomataSimulator::GetIndex(math::ivec2 v, uint16_t width)
+int AutomataSimulator::GetIndex(math::ivec2 v, int width)
 {
 	int idx = 0;
 	idx = v.x + (width * v.y);

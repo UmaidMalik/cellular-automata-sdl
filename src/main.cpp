@@ -83,7 +83,7 @@ int main()
             auto* swapchain_texture = renderer.GetSwapchainTexture();
             if (swapchain_texture != nullptr && !is_minimized)
             {
-                renderer.SetColorTargetInfo(math::vec4(0.55f, 0.60f, 1.00f, 0.45f));
+                renderer.SetColorTargetInfo(math::RGBAColor(0.55f, 0.60f, 1.00f, 0.45f));
                 renderer.BeginRenderPass();
                 /*
                 rects.Draw(render_pass);
