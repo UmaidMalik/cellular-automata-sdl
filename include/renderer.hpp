@@ -2,6 +2,7 @@
 
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
+#include "math.hpp"
 #include "window.hpp"
 #include <iostream>
 
@@ -20,7 +21,7 @@ class Renderer
         SDL_GPUCommandBuffer* GetCommandBuffer();
         void AcquireSwapchainTexture();
         SDL_GPUTexture* GetSwapchainTexture();
-        void SetColorTargetInfo(ImVec4 clear_color);
+        void SetColorTargetInfo(math::vec4 clear_color);
         void BeginRenderPass();
         SDL_GPURenderPass* GetRenderPass();
         void EndRenderPass();
@@ -59,11 +60,11 @@ SDL_GPUTexture* Renderer::GetSwapchainTexture()
     return m_swapchain_texture;
 }
 
-void Renderer::SetColorTargetInfo(ImVec4 clear_color)
+void Renderer::SetColorTargetInfo(math::vec4 clear_color)
 {
     m_target_info = {};
     m_target_info.texture = m_swapchain_texture;
-    m_target_info.clear_color = SDL_FColor { clear_color.w, clear_color.x, clear_color.y, clear_color.z }; // ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    m_target_info.clear_color = SDL_FColor { clear_color.a, clear_color.x, clear_color.y, clear_color.z }; // ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     m_target_info.load_op = SDL_GPU_LOADOP_CLEAR;
     m_target_info.store_op = SDL_GPU_STOREOP_STORE;
     m_target_info.mip_level = 0;

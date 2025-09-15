@@ -9,6 +9,8 @@
 #include "imgui_manager.hpp"
 #include "event_handler.hpp"
 #include "renderer.hpp"
+#include "automata_simulator.hpp"
+#include "math.hpp"
 #include <string>
 #include <vector>
 #include <random>
@@ -18,6 +20,9 @@ int main()
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, 255);
+
+    AutomataSimulator auto_sim(5, 4, 1);
+    auto_sim.DebugPrint();
 
     int status = 0;
     Window window(1280, 720, "Cellular Automata");
@@ -78,7 +83,7 @@ int main()
             auto* swapchain_texture = renderer.GetSwapchainTexture();
             if (swapchain_texture != nullptr && !is_minimized)
             {
-                renderer.SetColorTargetInfo(ImVec4(0.45f, 0.55f, 0.60f, 1.00f));
+                renderer.SetColorTargetInfo(math::vec4(0.55f, 0.60f, 1.00f, 0.45f));
                 renderer.BeginRenderPass();
                 /*
                 rects.Draw(render_pass);
