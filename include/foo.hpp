@@ -3,6 +3,8 @@
 namespace the
 {
     void foo();
+    
+    void bar();
 }
 
 /*

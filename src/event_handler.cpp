@@ -22,7 +22,7 @@ void EventHandler::ProcessEvents()
     while (SDL_PollEvent(&m_event))
     {
         m_imgui_manager->ProcessEvent(&m_event);
-        if (m_event.type == SDL_EVENT_QUIT) 
+        if (m_event.type == SDL_EVENT_QUIT || m_event.type == SDLK_ESCAPE) 
         {
             m_window->EndRun();
         }
