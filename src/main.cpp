@@ -21,7 +21,7 @@ int main()
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, 255);
 
-    AutomataSimulator auto_sim(5, 4, 1);
+    AutomataSimulator auto_sim(5, 4, 1, 2);
     auto_sim.DebugPrint();
 
     int status = 0;
