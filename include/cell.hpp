@@ -8,7 +8,7 @@ using namespace math;
 
 struct Cell
 {
-    uint8_t state = 0; // 0: DEAD, 1: ALIVE, 2: AGING1 ... 
+    int state = 0; // 0: DEAD, 1: ALIVE, 2: AGING1 ... 
     HSVColor color{0.0f, 0.0f, 0.0f};
 };
 

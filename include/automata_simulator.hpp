@@ -14,9 +14,10 @@ class AutomataSimulator
         int m_range;
         int m_born;
         int m_survive;
+        int m_max_states;
         std::vector<Cell> m_grid;
     public:
-        AutomataSimulator(int w, int h, int r);
+        AutomataSimulator(int w, int h, int r, int max_states);
         ~AutomataSimulator();
         void DebugPrint();
         void SetRule(int born, int survive);
@@ -26,8 +27,8 @@ class AutomataSimulator
         static int GetIndex(math::ivec2 v, int width);
 };
 
-AutomataSimulator::AutomataSimulator(int w, int h, int r)
-    : m_width(w), m_height(h), m_range(r)
+AutomataSimulator::AutomataSimulator(int w, int h, int r, int max_states)
+    : m_width(w), m_height(h), m_range(r), m_max_states(max_states)
 {
     m_grid.resize(m_width * m_height);
 }
@@ -53,7 +54,7 @@ void AutomataSimulator::DebugPrint()
 
 void AutomataSimulator::SetRule(int born, int survive)
 {
-    
+
 }
 
 void AutomataSimulator::Step()
