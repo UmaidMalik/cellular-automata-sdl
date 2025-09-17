@@ -33,6 +33,10 @@ void EventHandler::ProcessEvents()
                     m_window->EndRun();
                 }
                 break;
+            case SDL_EVENT_WINDOW_RESIZED:
+                m_event.window.data1;
+                m_event.window.data2;
+                break;
         }
     }
 }
