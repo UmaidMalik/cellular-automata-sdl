@@ -34,8 +34,8 @@ void EventHandler::ProcessEvents()
                 }
                 break;
             case SDL_EVENT_WINDOW_RESIZED:
-                m_event.window.data1;
-                m_event.window.data2;
+                //m_event.window.data1;
+                //m_event.window.data2;
                 break;
         }
     }
