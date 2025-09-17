@@ -17,18 +17,30 @@ class AutomataSimulator
         int m_max_states;
         std::vector<Cell> m_grid;
     public:
-        AutomataSimulator(int w, int h, int r, int max_states);
+        AutomataSimulator(int w, int h);
         ~AutomataSimulator();
         void DebugPrint();
-        void SetRule(int born, int survive);
+
+        void SetRule(int born, int survive, int range, int max_states);
+
+        void SetBornRule(int born);
+        void SetSurviveRule(int survive);
+        void SetRange(int range);
+        void SetMaxStates(int max_states);
+
+        int GetBornRule();
+        int GetSurviveRule();
+        void SetRange(int range);
+        void SetMaxStates(int max_states);
+
         void Step();
         void CheckNeighbors(int idx);
         static math::ivec2 GetPosition(int idx, int width);
         static int GetIndex(math::ivec2 v, int width);
 };
 
-AutomataSimulator::AutomataSimulator(int w, int h, int r, int max_states)
-    : m_width(w), m_height(h), m_range(r), m_max_states(max_states)
+AutomataSimulator::AutomataSimulator(int w, int h)
+    : m_width(w), m_height(h)
 {
     m_grid.resize(m_width * m_height);
 }
@@ -52,9 +64,42 @@ void AutomataSimulator::DebugPrint()
     std::cout << "\n";
 }
 
-void AutomataSimulator::SetRule(int born, int survive)
+void AutomataSimulator::SetRule(int born, int survive, int range, int max_states)
 {
+    m_born = born;
+    m_survive = survive;
+    m_range = range;
+    m_max_states = max_states;
+}
 
+void AutomataSimulator::SetBornRule(int born)
+{
+    m_born = born;
+}
+
+void AutomataSimulator::SetSurviveRule(int survive)
+{
+    m_survive = survive;
+}
+
+void AutomataSimulator::SetRange(int range)
+{
+    m_range = range;
+}
+
+void AutomataSimulator::SetMaxStates(int max_states)
+{
+    m_max_states = max_states;
+}
+
+int AutomataSimulator::GetBornRule()
+{
+    return m_born;
+}
+
+int AutomataSimulator::GetSurviveRule()
+{
+    return m_survive;
 }
 
 void AutomataSimulator::Step()
