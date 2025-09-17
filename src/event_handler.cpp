@@ -22,15 +22,17 @@ void EventHandler::ProcessEvents()
     while (SDL_PollEvent(&m_event))
     {
         m_imgui_manager->ProcessEvent(&m_event);
-        if (m_event.type == SDL_EVENT_QUIT || m_event.type == SDLK_ESCAPE) 
+        switch (m_event.type)
         {
-            m_window->EndRun();
+            case SDL_EVENT_QUIT:
+                m_window->EndRun();
+                break;
+            case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+                if (m_event.window.windowID == SDL_GetWindowID(m_window->GetSDLWindow()))
+                {
+                    m_window->EndRun();
+                }
+                break;
         }
-        if(m_event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
-            m_event.window.windowID == SDL_GetWindowID(m_window->GetSDLWindow()))
-        {
-            m_window->EndRun();
-        }
-
     }
 }
