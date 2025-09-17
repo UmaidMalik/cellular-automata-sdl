@@ -30,8 +30,8 @@ class AutomataSimulator
 
         int GetBornRule();
         int GetSurviveRule();
-        void SetRange(int range);
-        void SetMaxStates(int max_states);
+        int GetRange();
+        int GetMaxStates();
 
         void Step();
         void CheckNeighbors(int idx);
@@ -100,6 +100,16 @@ int AutomataSimulator::GetBornRule()
 int AutomataSimulator::GetSurviveRule()
 {
     return m_survive;
+}
+
+int AutomataSimulator::GetRange()
+{
+    return m_range;
+}
+
+int AutomataSimulator::GetMaxStates()
+{
+    return m_max_states;
 }
 
 void AutomataSimulator::Step()
