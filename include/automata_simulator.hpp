@@ -5,6 +5,10 @@
 #include "math.hpp"
 #include <iostream>
 #include <vector>
+#include <unordered_set>
+
+using uset = std::unordered_set<int>;
+using vector = std::vector<Cell>;
 
 class AutomataSimulator
 {
@@ -12,10 +16,10 @@ class AutomataSimulator
         int m_width;
         int m_height;
         int m_range;
-        int m_born;
-        int m_survive;
+        uset m_born;
+        uset m_survive;
         int m_max_states;
-        std::vector<Cell> m_grid;
+        vector m_grid;
     public:
         AutomataSimulator(int w, int h);
         ~AutomataSimulator();
@@ -23,15 +27,16 @@ class AutomataSimulator
 
         void SetRule(int born, int survive, int range, int max_states);
 
-        void SetBornRule(int born);
-        void SetSurviveRule(int survive);
+        void SetBornRule(uset born);
+        void SetSurviveRule(uset survive);
         void SetRange(int range);
         void SetMaxStates(int max_states);
 
-        int GetBornRule();
-        int GetSurviveRule();
+        uset GetBornRule();
+        uset GetSurviveRule();
         int GetRange();
         int GetMaxStates();
+        std::vector<Cell>* GetGrid();
 
         void Step();
         void CheckNeighbors(int idx);
@@ -72,12 +77,12 @@ void AutomataSimulator::SetRule(int born, int survive, int range, int max_states
     m_max_states = max_states;
 }
 
-void AutomataSimulator::SetBornRule(int born)
+void AutomataSimulator::SetBornRule(uset born)
 {
     m_born = born;
 }
 
-void AutomataSimulator::SetSurviveRule(int survive)
+void AutomataSimulator::SetSurviveRule(uset survive)
 {
     m_survive = survive;
 }
@@ -92,12 +97,12 @@ void AutomataSimulator::SetMaxStates(int max_states)
     m_max_states = max_states;
 }
 
-int AutomataSimulator::GetBornRule()
+uset AutomataSimulator::GetBornRule()
 {
     return m_born;
 }
 
-int AutomataSimulator::GetSurviveRule()
+uset AutomataSimulator::GetSurviveRule()
 {
     return m_survive;
 }
@@ -110,6 +115,11 @@ int AutomataSimulator::GetRange()
 int AutomataSimulator::GetMaxStates()
 {
     return m_max_states;
+}
+
+vector* AutomataSimulator::GetGrid()
+{
+    return &m_grid;
 }
 
 void AutomataSimulator::Step()

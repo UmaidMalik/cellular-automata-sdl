@@ -34,9 +34,10 @@ int main(int argc, char* argv[])
     if (status != 0)
     {
         std::cerr << "Error: window setup failed\n";
-        return -1;
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Ran into an error during window setup :(", nullptr);
+        return 1;
     }
-
+    
     {
         ImGuiManager imgui_manager(&window);
         imgui_manager.CreateAndSetupContext();
