@@ -10,6 +10,12 @@
 using uset = std::unordered_set<int>;
 using vector = std::vector<Cell>;
 
+struct CountAndColor
+{
+    int count = 0;
+    HSVColor color{ 0.0f, 0.0f, 0.0f };
+};
+
 class AutomataSimulator
 {
     private:
@@ -25,7 +31,7 @@ class AutomataSimulator
         ~AutomataSimulator();
         void DebugPrint();
 
-        void SetRule(int born, int survive, int range, int max_states);
+        void SetRule(uset born, uset survive, int range, int max_states);
 
         void SetBornRule(uset born);
         void SetSurviveRule(uset survive);
@@ -39,9 +45,14 @@ class AutomataSimulator
         std::vector<Cell>* GetGrid();
 
         void Step();
-        void CheckNeighbors(int idx);
-        static math::ivec2 GetPosition(int idx, int width);
-        static int GetIndex(math::ivec2 v, int width);
+        
+        void ApplyAutomataRule(int idx);
+        CountAndColor GetNeighborCountAndAverageColor(int idx);
+        math::ivec2 GetPosition(int idx);
+        int GetIndex(math::ivec2 v);
+        bool IsOutOfBounds(math::ivec2 v);
+
+        void Debug_SetConwaysGameOfLifeRule();
 };
 
 AutomataSimulator::AutomataSimulator(int w, int h)
@@ -69,7 +80,7 @@ void AutomataSimulator::DebugPrint()
     std::cout << "\n";
 }
 
-void AutomataSimulator::SetRule(int born, int survive, int range, int max_states)
+void AutomataSimulator::SetRule(uset born, uset survive, int range, int max_states)
 {
     m_born = born;
     m_survive = survive;
@@ -124,27 +135,73 @@ vector* AutomataSimulator::GetGrid()
 
 void AutomataSimulator::Step()
 {
+    // create copy ?
+    int num_alive_neighbors = 0;
+    for (size_t i = 0; i < m_grid.size(); i++)
+    {
+        num_alive_neighbors = CheckNeighborsCount(i);
+        ApplyAutomataRule(i);
+    }
+    // m_grid = next_grid;
+}
+
+CountAndColor AutomataSimulator::GetNeighborCountAndAverageColor(int idx)
+{
+    CountAndColor cc;
+    int x_coord = 0, y_coord = 0;
+    math::ivec2 v = GetPosition(idx);
+    int i = v.x, j = v.y;
+    for (size_t x = i - m_range; x <= i + m_range; x++)
+    {
+        for (size_t y = j - m_range; y <= j + m_range; y++)
+        {
+            x_coord = ((x + m_width) % m_width);
+            y_coord = ((y + m_height) % m_height);
+            if (IsOutOfBounds((math::ivec2){ x_coord, y_coord }))
+            {
+                continue;
+            }
+            if ()
+            {
+                cc.count += 1;
+            }
+
+        }
+    }
 
 }
 
-void AutomataSimulator::CheckNeighbors(int idx)
+void AutomataSimulator::ApplyAutomataRule(int idx)
 {
-    math::ivec2 grid_pos = GetPosition(idx, m_width);
-    int x = grid_pos.x, y = grid_pos.y;
-
+    
 }
 
-math::ivec2 AutomataSimulator::GetPosition(int idx, int width)
+math::ivec2 AutomataSimulator::GetPosition(int idx)
 {
-	int x = idx % width;
-	int y = idx / width;
+	int x = idx % m_width;
+	int y = idx / m_width;
 	math::ivec2 v = { x, y };
 	return v;
 }
 
-int AutomataSimulator::GetIndex(math::ivec2 v, int width)
+int AutomataSimulator::GetIndex(math::ivec2 v)
 {
 	int idx = 0;
-	idx = v.x + (width * v.y);
+	idx = v.x + (m_width * v.y);
 	return idx;
+}
+
+bool AutomataSimulator::IsOutOfBounds(math::ivec2 v)
+{
+    if ()
+}
+
+void AutomataSimulator::Debug_SetConwaysGameOfLifeRule()
+{
+    m_max_states = 2;
+    m_born.clear();
+    m_survive.clear();
+    m_born.insert(3);
+    m_survive.insert(2);
+    m_survive.insert(3);
 }
