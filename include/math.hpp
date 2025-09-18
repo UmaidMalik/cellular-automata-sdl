@@ -11,6 +11,10 @@ namespace math
         int y;
         ivec2(int _x, int _y)
             : x(_x), y(_y) {}
+        ivec2 operator+(const ivec2 v) const
+        {
+            return { y + v.y, y + v.y };
+        }
     };
 
     struct ivec3
@@ -20,6 +24,10 @@ namespace math
         int z;
         ivec3(int _x, int _y, int _z)
             : x(_x), y(_y), z(_z) {}
+        ivec3 operator+(const ivec3 v) const
+        {
+            return { x + v.x, y + v.y, z + v.z };
+        }
     };
     
     struct ivec4
@@ -115,7 +123,9 @@ namespace math
     float fract(float x);
 };
 
-math::RGBColor math::HSVtoRGB(math::HSVColor hsv_color)
+using namespace math;
+
+RGBColor HSVtoRGB(HSVColor hsv_color)
 {
     float h = hsv_color.h, s = hsv_color.s, v = hsv_color.v;
     
@@ -132,10 +142,10 @@ math::RGBColor math::HSVtoRGB(math::HSVColor hsv_color)
     float g = v * (1.0f - s * (1.0f - f(kG, h)));
     float b = v * (1.0f - s * (1.0f - f(kB, h)));
 
-    return math::RGBColor{ r, g, b };
+    return RGBColor{ r, g, b };
 }
 
-math::HSVColor math::RGBtoHSV(math::RGBColor rgb_color)
+HSVColor RGBtoHSV(RGBColor rgb_color)
 {
     float r = rgb_color.r, g = rgb_color.g, b = rgb_color.b;
     float c_max = std::max({ r, g, b });
@@ -167,10 +177,10 @@ math::HSVColor math::RGBtoHSV(math::RGBColor rgb_color)
 
         s = delta / c_max;
     }
-    return math::HSVColor{h, s, v};
+    return HSVColor{h, s, v};
 }
 
-float math::fract(float x)
+float fract(float x)
 {
     return x - std::floor(x);
 }
