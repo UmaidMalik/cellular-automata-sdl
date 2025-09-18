@@ -13,6 +13,7 @@ using vector = std::vector<Cell>;
 struct CountAndColor
 {
     int count = 0;
+    // note for potential change/efficiency: we only need the hue value
     HSVColor color{ 0.0f, 0.0f, 0.0f };
 };
 
