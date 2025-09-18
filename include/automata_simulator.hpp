@@ -46,7 +46,7 @@ class AutomataSimulator
 
         void Step();
         
-        void ApplyAutomataRule(int idx);
+        void ApplyAutomataRule(int idx, CountAndHue count_hue;
         CountAndHue GetNeighborCountAndAverageColor(int idx);
         math::ivec2 GetPosition(int idx);
         int GetIndex(math::ivec2 v);
@@ -136,11 +136,12 @@ vector* AutomataSimulator::GetGrid()
 void AutomataSimulator::Step()
 {
     // create copy ?
+    CountAndHue count_hue;
     int num_alive_neighbors = 0;
     for (size_t i = 0; i < m_grid.size(); i++)
     {
-        num_alive_neighbors = CheckNeighborsCount(i);
-        ApplyAutomataRule(i);
+        count_hue = GetNeighborCountAndAverageColor(i);
+        ApplyAutomataRule(i, count_hue); // should I use a reference of count_hue here?
     }
     // m_grid = next_grid;
 }
@@ -181,8 +182,10 @@ CountAndHue AutomataSimulator::GetNeighborCountAndAverageColor(int idx)
     return count_hue;
 }
 
-void AutomataSimulator::ApplyAutomataRule(int idx)
+void AutomataSimulator::ApplyAutomataRule(int idx, CountAndHue count_hue)
 {
+    Debug_SetConwaysGameOfLifeRule();
+
     
 }
 
