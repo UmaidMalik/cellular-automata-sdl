@@ -10,11 +10,10 @@
 using uset = std::unordered_set<int>;
 using vector = std::vector<Cell>;
 
-struct CountAndColor
+struct CountAndHue
 {
     int count = 0;
-    // note for potential change/efficiency: we only need the hue value
-    HSVColor color{ 0.0f, 0.0f, 0.0f };
+    float hue = 0.0f;
 };
 
 class AutomataSimulator
@@ -48,10 +47,10 @@ class AutomataSimulator
         void Step();
         
         void ApplyAutomataRule(int idx);
-        CountAndColor GetNeighborCountAndAverageColor(int idx);
+        CountAndHue GetNeighborCountAndAverageColor(int idx);
         math::ivec2 GetPosition(int idx);
         int GetIndex(math::ivec2 v);
-        bool IsOutOfBounds(math::ivec2 v);
+        bool IsOutOfBounds(math::ivec2& v);
 
         void Debug_SetConwaysGameOfLifeRule();
 };
@@ -146,30 +145,40 @@ void AutomataSimulator::Step()
     // m_grid = next_grid;
 }
 
-CountAndColor AutomataSimulator::GetNeighborCountAndAverageColor(int idx)
+CountAndHue AutomataSimulator::GetNeighborCountAndAverageColor(int idx)
 {
-    CountAndColor cc;
+    CountAndHue count_hue;
     int x_coord = 0, y_coord = 0;
     math::ivec2 v = GetPosition(idx);
     int i = v.x, j = v.y;
+    int curr_idx;
     for (size_t x = i - m_range; x <= i + m_range; x++)
     {
         for (size_t y = j - m_range; y <= j + m_range; y++)
         {
             x_coord = ((x + m_width) % m_width);
             y_coord = ((y + m_height) % m_height);
+            int curr_idx = GetIndex(math::ivec2{ x_coord, y_coord });
             if (IsOutOfBounds((math::ivec2){ x_coord, y_coord }))
             {
                 continue;
             }
-            if ()
+            if (!(x == i && y == j) && m_grid[curr_idx].state == static_cast<int>(CellState::ALIVE))
             {
-                cc.count += 1;
+                count_hue.count += 1;
+                count_hue.hue += m_grid[curr_idx].color.h;
             }
-
         }
     }
-
+    if (count_hue.count > 0)
+    {
+        count_hue.hue /= count_hue.count;
+    }
+    else
+    {
+        count_hue.hue = 0.0f;
+    }
+    return count_hue;
 }
 
 void AutomataSimulator::ApplyAutomataRule(int idx)
@@ -192,9 +201,10 @@ int AutomataSimulator::GetIndex(math::ivec2 v)
 	return idx;
 }
 
-bool AutomataSimulator::IsOutOfBounds(math::ivec2 v)
+bool AutomataSimulator::IsOutOfBounds(math::ivec2& v)
 {
-    if ()
+    return (!(v.x >= 0 && v.x < m_width &&
+        v.y >= 0 && v.y < m_height))
 }
 
 void AutomataSimulator::Debug_SetConwaysGameOfLifeRule()

@@ -12,6 +12,13 @@ struct Cell
     HSVColor color{0.0f, 0.0f, 0.0f};
 };
 
+enum class CellState
+{
+    DEAD = 0,
+    ALIVE = 1,
+    AGING = 2, // 2 to n states
+};
+
 
 std::ostream& operator<<(std::ostream& os, const Cell& cell)
 {
