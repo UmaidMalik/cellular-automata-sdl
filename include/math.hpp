@@ -30,6 +30,10 @@ namespace math
         int a;
         ivec4(int _x, int _y, int _z, int _a)
             : x(_x), y(_y), z(_z), a(_a) {}
+        ivec4 operator+(const ivec4 v) const
+        {
+            return { x + v.x, y + v.y, z + v.z, a + v.a };
+        }
     };
 
     struct vec2
@@ -38,6 +42,10 @@ namespace math
         float y;
         vec2(float _x, float _y)
             : x(_x), y(_y) {}
+        vec2 operator+(const vec2 v) const
+        {
+            return { x + v.x, y + v.y };
+        }
     };
 
     struct vec3
@@ -47,6 +55,10 @@ namespace math
         float z;
         vec3(float _x, float _y, float _z)
             : x(_x), y(_y), z(_z) {}
+        vec3 operator+(const vec3 v) const
+        {
+            return { x + v.x, y + v.y, z + v.z };
+        }
     };
 
     struct vec4
@@ -57,6 +69,10 @@ namespace math
         float a;
         vec4(float _x, float _y, float _z, float _a)
             : x(_x), y(_y), z(_z), a(_a) {}
+        vec4 operator+(const vec4 v) const
+        {
+            return { x + v.x, y + v.y, z + v.z, a + v.a };
+        }
     };
 
     struct RGBAColor
@@ -64,6 +80,10 @@ namespace math
         float r, g, b, a;
         RGBAColor(float _r, float _g, float _b, float _a)
             : r(_r), g(_g), b(_b), a(_a) {}
+        RGBAColor operator+(const RGBAColor c) const
+        {
+            return { r + c.r, g + c.g, b + c.b, a + c.a };
+        }
     };
 
     struct RGBColor
@@ -71,6 +91,10 @@ namespace math
         float r, g, b;
         RGBColor(float _r, float _g, float _b)
             : r(_r), g(_g), b(_b) {}
+        RGBColor operator+(const RGBColor c) const
+        {
+            return { r + c.r, g + c.g, b + c.b };
+        }
     };
 
     struct HSVColor
@@ -78,6 +102,10 @@ namespace math
         float h, s, v;
         HSVColor(float _h, float _s, float _v)
             : h(_h), s(_s), v(_v) {}
+        HSVColor operator+(const HSVColor c) const
+        {
+            return { h + c.h, s + c.s, v + c.v };
+        }
     };
     
     RGBColor HSVtoRGB(HSVColor hsv_color);
