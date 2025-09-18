@@ -186,6 +186,7 @@ void AutomataSimulator::ApplyAutomataRule(int idx, CountAndHue count_hue)
 {
     Debug_SetConwaysGameOfLifeRule();
 
+    int cell_state = m_grid[idx].state;
     
 }
 
