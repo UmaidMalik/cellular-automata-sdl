@@ -138,7 +138,6 @@ vector* AutomataSimulator::GetGrid()
 
 void AutomataSimulator::Step()
 {
-    // create copy ?
     CountAndHue count_hue;
     int num_alive_neighbors = 0;
     for (size_t i = 0; i < m_grid.size(); i++)
@@ -189,8 +188,18 @@ void AutomataSimulator::ApplyAutomataRule(int idx, CountAndHue count_hue)
 {
     Debug_SetConwaysGameOfLifeRule();
 
-    int cell_state = m_grid[idx].state;
+    int cell_state_int = m_grid[idx].state;
     
+    bool is_alive = (cell_state_int == static_cast<int>(CellState::ALIVE)) ? true : false; 
+    bool is_dead = (cell_state_int == static_cast<int>(CellState::DEAD)) ? true : false;
+    bool should_survive = is_alive && m_survive.find(count_hue.count) != m_survive.end(); 
+    bool should_be_born = is_dead && m_born.find(count_hue.count) != m_born.end();
+
+    if (should_be_born)
+    {
+        m_grid_next[idx].state = static_cast<int>(CellState::ALIVE);
+        m_grid_next[idx].color.h = count_hue.hue;
+    }
 }
 
 math::ivec2 AutomataSimulator::GetPosition(int idx)
