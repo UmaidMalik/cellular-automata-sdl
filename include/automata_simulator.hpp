@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 #include <unordered_set>
+#include <algorithm>
 
 using uset = std::unordered_set<int>;
 using vector = std::vector<Cell>;
@@ -26,6 +27,7 @@ class AutomataSimulator
         uset m_survive;
         int m_max_states;
         vector m_grid;
+        vector m_grid_next;
     public:
         AutomataSimulator(int w, int h);
         ~AutomataSimulator();
@@ -59,6 +61,7 @@ AutomataSimulator::AutomataSimulator(int w, int h)
     : m_width(w), m_height(h)
 {
     m_grid.resize(m_width * m_height);
+    m_grid_next.resize(m_width * m_height);
 }
 
 AutomataSimulator::~AutomataSimulator()
@@ -143,7 +146,7 @@ void AutomataSimulator::Step()
         count_hue = GetNeighborCountAndAverageColor(i);
         ApplyAutomataRule(i, count_hue); // should I use a reference of count_hue here?
     }
-    // m_grid = next_grid;
+    std::swap(m_grid, m_grid_next);
 }
 
 CountAndHue AutomataSimulator::GetNeighborCountAndAverageColor(int idx)
@@ -208,7 +211,7 @@ int AutomataSimulator::GetIndex(math::ivec2 v)
 bool AutomataSimulator::IsOutOfBounds(math::ivec2& v)
 {
     return (!(v.x >= 0 && v.x < m_width &&
-        v.y >= 0 && v.y < m_height))
+        v.y >= 0 && v.y < m_height));
 }
 
 void AutomataSimulator::Debug_SetConwaysGameOfLifeRule()
