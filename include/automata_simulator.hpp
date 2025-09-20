@@ -105,11 +105,11 @@ bool AutomataSimulator::ParseRule(std::string& rule_string, bool is_born_rule)
         std::cerr << "Error: Invalid rule string" << "\n";
         return false;
     }
-    auto res = util::split_and_trim(rule_string, ',');
-    for(auto& item: res)
+    auto rules = util::split_and_trim(rule_string, ',');
+    for(auto& token: rules)
     {
-        std::cout << "[DEBUG]: <" << item << ">\n";
-        
+        std::cout << "[DEBUG]: <" << token << ">\n";
+
     }
 
 
