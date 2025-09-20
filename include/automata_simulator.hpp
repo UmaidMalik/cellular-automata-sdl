@@ -7,6 +7,9 @@
 #include <vector>
 #include <unordered_set>
 #include <algorithm>
+#include <string>
+#include <sstream>
+#include "utility.hpp"
 
 using uset = std::unordered_set<int>;
 using vector = std::vector<Cell>;
@@ -36,6 +39,7 @@ class AutomataSimulator
         ~AutomataSimulator();
         void DebugPrint();
 
+        bool ParseRule(std::string& rule_string, bool is_born_rule);
         void SetRule(uset born, uset survive, int range, int max_states);
 
         void SetBornRule(uset born);
@@ -84,6 +88,18 @@ void AutomataSimulator::DebugPrint()
         std::cout << m_grid[i] << " ";
     }
     std::cout << "\n";
+}
+
+/*
+    expected rule string format: 
+    0-3,4-6,7,9
+*/
+bool AutomataSimulator::ParseRule(std::string& rule_string, bool is_born_rule)
+{
+    uset& rule_set = is_born_rule ? m_born : m_survive;
+    rule_set.clear();
+
+    return true;
 }
 
 void AutomataSimulator::SetRule(uset born, uset survive, int range, int max_states)

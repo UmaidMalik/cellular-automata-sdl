@@ -14,6 +14,14 @@
 #include <string>
 #include <vector>
 #include <random>
+#include <regex>
+#include "utility.hpp"
+
+void ltrim(std::string &s);
+void rtrim(std::string &s);
+void trim(std::string &s);
+void remove_spaces(std::string &s);
+std::vector<std::string> split_and_trim(const std::string &str, char delimiter);
 
 int main(int argc, char* argv[])
 {
@@ -29,7 +37,7 @@ int main(int argc, char* argv[])
     int id3 = auto_sim.GetIndex(math::ivec2{3,3});
     Cell cell(1, HSVColor{ 0.5f, 1.0f, 1.0f });
 
-    auto& grid = *auto_sim.GetGrid(); 
+    auto grid = *auto_sim.GetGrid(); 
     grid[id1] = cell;
     grid[id2] = cell;
     grid[id3] = cell;
@@ -39,6 +47,25 @@ int main(int argc, char* argv[])
     auto_sim.DebugPrint();
     auto_sim.Step();
     auto_sim.DebugPrint();
+
+
+    std::string my_test = "      0-3,4   -  6,   7,9  ";
+    util::remove_spaces(my_test);
+    std::cout << "[DEBUG]: <" << my_test << ">\n";
+    std::regex pattern(R"(^\d+(-\d+)?(,\d+(-\d+)?)*$)");
+    if (std::regex_match(my_test, pattern))
+    {
+        std::cout << "VALID MATCH" << "\n";
+    }
+    else
+    {
+        std::cerr << "INVALID MATCH" << "\n";
+    }
+    auto res = util::split_and_trim(my_test, ',');
+    for(auto& item: res)
+    {
+        std::cout << "[DEBUG]: <" << item << ">\n";
+    }
      
 
     int status = 0;
@@ -114,3 +141,4 @@ int main(int argc, char* argv[])
     }
     return 0;
 }
+
