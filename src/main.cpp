@@ -31,16 +31,32 @@ int main(int argc, char* argv[])
     int id3 = auto_sim.GetIndex(math::ivec2{3,3});
     Cell cell(1, HSVColor{ 0.5f, 1.0f, 1.0f });
 
-    auto grid = *auto_sim.GetGrid(); 
+    auto& grid = *auto_sim.GetGrid(); 
     grid[id1] = cell;
     grid[id2] = cell;
     grid[id3] = cell;
-   // auto_sim.Debug_SetConwaysGameOfLifeRule();
+    //auto_sim.Debug_SetConwaysGameOfLifeRule();
+    std::string str1 = "0-9";
+    std::string str2 = " 0-9";
+    auto_sim.SetRange(1);
+    auto_sim.SetMaxStates(2);
+    auto_sim.ParseRule(str1, true);
+    auto_sim.ParseRule(str2, false);
     auto_sim.DebugPrint();
     auto_sim.Step();
     auto_sim.DebugPrint();
     auto_sim.Step();
     auto_sim.DebugPrint();
+
+    /*
+        m_range = 1;
+    m_max_states = 2;
+    m_born.clear();
+    m_survive.clear();
+    m_born.insert(3);
+    m_survive.insert(2);
+    m_survive.insert(3);
+    */
 
     //std::string my_test = "      7-3,4   -  6,   7,9  ";
     //auto_sim.ParseRule(my_test, true);

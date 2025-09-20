@@ -123,7 +123,7 @@ bool AutomataSimulator::ParseRule(std::string& rule_string, bool is_born_rule)
             {
                 std::swap(a, b);
             }
-            
+
             for (size_t i = a; i <= b; i++)
             {
                 rule_set.insert(i);
