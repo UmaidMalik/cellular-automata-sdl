@@ -106,10 +106,18 @@ bool AutomataSimulator::ParseRule(std::string& rule_string, bool is_born_rule)
         return false;
     }
     auto rules = util::split_and_trim(rule_string, ',');
-    for(auto& token: rules)
+    for(auto& rule: rules)
     {
-        std::cout << "[DEBUG]: <" << token << ">\n";
+        std::cout << "[DEBUG]: <" << rule << ">\n";
+        auto dash = rule.find('-');
+        if (dash == std::string::npos)
+        {
+            rule_set.insert(std::stoi(rule));
+        }
+        else
+        {
 
+        }
     }
 
 
