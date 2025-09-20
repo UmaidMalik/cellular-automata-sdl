@@ -21,6 +21,7 @@ class Window
         SDL_Window* GetSDLWindow() const;
         SDL_GPUDevice* GetGPUDevice() const;
         int ClaimWindowForGPUDevice();
+        bool SetupWindow();
         int SetGPUSwapchainParams
         (
             SDL_GPUSwapchainComposition swapchain_composition,

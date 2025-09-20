@@ -17,12 +17,6 @@
 #include <regex>
 #include "utility.hpp"
 
-void ltrim(std::string &s);
-void rtrim(std::string &s);
-void trim(std::string &s);
-void remove_spaces(std::string &s);
-std::vector<std::string> split_and_trim(const std::string &str, char delimiter);
-
 int main(int argc, char* argv[])
 {
     std::random_device rd;
@@ -49,33 +43,13 @@ int main(int argc, char* argv[])
     auto_sim.DebugPrint();
 
 
-    std::string my_test = "      0-3,4   -  6,   7,9  ";
-    util::remove_spaces(my_test);
-    std::cout << "[DEBUG]: <" << my_test << ">\n";
-    std::regex pattern(R"(^\d+(-\d+)?(,\d+(-\d+)?)*$)");
-    if (std::regex_match(my_test, pattern))
-    {
-        std::cout << "VALID MATCH" << "\n";
-    }
-    else
-    {
-        std::cerr << "INVALID MATCH" << "\n";
-    }
-    auto res = util::split_and_trim(my_test, ',');
-    for(auto& item: res)
-    {
-        std::cout << "[DEBUG]: <" << item << ">\n";
-    }
+    std::string my_test = "      7-3,4   -  6,   7,9  ";
+    auto_sim.ParseRule(my_test, true);
      
 
     int status = 0;
     Window window(1280, 720, "Cellular Automata");
-    status += window.InitWindow();
-    status += window.CreateWindow(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-    status += window.CreateGPUDevice();
-    status += window.ClaimWindowForGPUDevice();
-    status += window.SetGPUSwapchainParams(SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
-    if (status != 0)
+    if (!window.SetupWindow())
     {
         std::cerr << "Error: window setup failed\n";
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Ran into an error during window setup :(", nullptr);

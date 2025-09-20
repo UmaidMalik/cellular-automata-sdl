@@ -129,6 +129,23 @@ int Window::SetGPUSwapchainParams
     return 0;
 }
 
+bool Window::SetupWindow()
+{
+    int status = 0;
+    status += InitWindow();
+    status += CreateWindow(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    status += CreateGPUDevice();
+    status += ClaimWindowForGPUDevice();
+    status += SetGPUSwapchainParams(SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
+    if (status != 0)
+    {
+        std::cerr << "Error: window setup failed\n";
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Ran into an error during window setup :(", nullptr);
+        return false;
+    }
+    return true;
+}
+
 void Window::StartRun()
 {
     m_running = true;

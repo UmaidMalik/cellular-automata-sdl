@@ -98,6 +98,21 @@ bool AutomataSimulator::ParseRule(std::string& rule_string, bool is_born_rule)
 {
     uset& rule_set = is_born_rule ? m_born : m_survive;
     rule_set.clear();
+    util::remove_spaces(rule_string);
+    std::regex pattern(R"(^\d+(-\d+)?(,\d+(-\d+)?)*$)");
+    if (!std::regex_match(rule_string, pattern))
+    {
+        std::cerr << "Error: Invalid rule string" << "\n";
+        return false;
+    }
+    auto res = util::split_and_trim(rule_string, ',');
+    for(auto& item: res)
+    {
+        std::cout << "[DEBUG]: <" << item << ">\n";
+        
+    }
+
+
 
     return true;
 }
