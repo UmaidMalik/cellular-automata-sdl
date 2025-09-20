@@ -25,11 +25,12 @@ class AutomataSimulator
         int m_range;
         uset m_born;
         uset m_survive;
-        int m_max_states;
+        int m_max_states = 2;
         vector m_grid;
         vector m_grid_next;
-        float m_saturation;
-        float m_value;
+        float m_saturation = 1.0f;
+        float m_value = 1.0f;
+        float m_decay_rate = 0.95f;
     public:
         AutomataSimulator(int w, int h);
         ~AutomataSimulator();
@@ -50,11 +51,11 @@ class AutomataSimulator
 
         void Step();
         
-        void ApplyAutomataRule(int idx, CountAndHue count_hue;
+        void ApplyAutomataRule(int idx, CountAndHue count_hue);
         CountAndHue GetNeighborCountAndAverageColor(int idx);
         math::ivec2 GetPosition(int idx);
         int GetIndex(math::ivec2 v);
-        bool IsOutOfBounds(math::ivec2& v);
+        bool IsOutOfBounds(const math::ivec2& v);
 
         void Debug_SetConwaysGameOfLifeRule();
 };
@@ -164,6 +165,7 @@ CountAndHue AutomataSimulator::GetNeighborCountAndAverageColor(int idx)
             x_coord = ((x + m_width) % m_width);
             y_coord = ((y + m_height) % m_height);
             int curr_idx = GetIndex(math::ivec2{ x_coord, y_coord });
+
             if (IsOutOfBounds((math::ivec2){ x_coord, y_coord }))
             {
                 continue;
@@ -206,7 +208,7 @@ void AutomataSimulator::ApplyAutomataRule(int idx, CountAndHue count_hue)
     }
     else if (is_dead)
     {
-        HSVColor color{ m_grid[idx].color.h, m_saturation, m_grid[idx].color.v * decay_rate };
+        HSVColor color{ m_grid[idx].color.h, m_saturation, m_grid[idx].color.v * m_decay_rate };
         m_grid_next[idx].state = static_cast<int>(CellState::DEAD);
         m_grid_next[idx].color = color;
     }
@@ -243,7 +245,7 @@ int AutomataSimulator::GetIndex(math::ivec2 v)
 	return idx;
 }
 
-bool AutomataSimulator::IsOutOfBounds(math::ivec2& v)
+bool AutomataSimulator::IsOutOfBounds(const math::ivec2& v)
 {
     return (!(v.x >= 0 && v.x < m_width &&
         v.y >= 0 && v.y < m_height));

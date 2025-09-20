@@ -123,9 +123,7 @@ namespace math
     float fract(float x);
 };
 
-using namespace math;
-
-RGBColor HSVtoRGB(HSVColor hsv_color)
+math::RGBColor math::HSVtoRGB(HSVColor hsv_color)
 {
     float h = hsv_color.h, s = hsv_color.s, v = hsv_color.v;
     
@@ -142,10 +140,10 @@ RGBColor HSVtoRGB(HSVColor hsv_color)
     float g = v * (1.0f - s * (1.0f - f(kG, h)));
     float b = v * (1.0f - s * (1.0f - f(kB, h)));
 
-    return RGBColor{ r, g, b };
+    return math::RGBColor{ r, g, b };
 }
 
-HSVColor RGBtoHSV(RGBColor rgb_color)
+math::HSVColor math::RGBtoHSV(RGBColor rgb_color)
 {
     float r = rgb_color.r, g = rgb_color.g, b = rgb_color.b;
     float c_max = std::max({ r, g, b });
@@ -177,10 +175,10 @@ HSVColor RGBtoHSV(RGBColor rgb_color)
 
         s = delta / c_max;
     }
-    return HSVColor{h, s, v};
+    return math::HSVColor{h, s, v};
 }
 
-float fract(float x)
+float math::fract(float x)
 {
     return x - std::floor(x);
 }
