@@ -28,6 +28,8 @@ class AutomataSimulator
         int m_max_states;
         vector m_grid;
         vector m_grid_next;
+        float m_saturation;
+        float m_value;
     public:
         AutomataSimulator(int w, int h);
         ~AutomataSimulator();
@@ -199,7 +201,31 @@ void AutomataSimulator::ApplyAutomataRule(int idx, CountAndHue count_hue)
     {
         m_grid_next[idx].state = static_cast<int>(CellState::ALIVE);
         m_grid_next[idx].color.h = count_hue.hue;
+        m_grid_next[idx].color.s = m_saturation;
+        m_grid_next[idx].color.v = m_value;
     }
+    else if (is_dead)
+    {
+        HSVColor color{ m_grid[idx].color.h, m_saturation, m_grid[idx].color.v * decay_rate };
+        m_grid_next[idx].state = static_cast<int>(CellState::DEAD);
+        m_grid_next[idx].color = color;
+    }
+    else if (should_survive)
+    {
+        m_grid_next[idx].state = static_cast<int>(CellState::ALIVE);
+        m_grid_next[idx].color.h = count_hue.hue;
+        m_grid_next[idx].color.s = m_saturation;
+        m_grid_next[idx].color.v = m_value;
+    }
+    else
+    {
+        m_grid_next[idx].state =  ++cell_state_int % m_max_states;
+        m_grid_next[idx].color.h = count_hue.hue;
+        m_grid_next[idx].color.s = m_saturation;
+        m_grid_next[idx].color.v = m_value;
+    }
+    
+    
 }
 
 math::ivec2 AutomataSimulator::GetPosition(int idx)
