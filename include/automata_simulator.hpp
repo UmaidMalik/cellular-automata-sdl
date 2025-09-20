@@ -22,7 +22,7 @@ class AutomataSimulator
     private:
         int m_width;
         int m_height;
-        int m_range;
+        int m_range = 1;
         uset m_born;
         uset m_survive;
         int m_max_states = 2;
@@ -30,7 +30,7 @@ class AutomataSimulator
         vector m_grid_next;
         float m_saturation = 1.0f;
         float m_value = 1.0f;
-        float m_decay_rate = 0.95f;
+        float m_decay_rate = 0.0f;
     public:
         AutomataSimulator(int w, int h);
         ~AutomataSimulator();
@@ -146,7 +146,7 @@ void AutomataSimulator::Step()
     for (size_t i = 0; i < m_grid.size(); i++)
     {
         count_hue = GetNeighborCountAndAverageColor(i);
-        ApplyAutomataRule(i, count_hue); // should I use a reference of count_hue here?
+        ApplyAutomataRule(i, count_hue);
     }
     std::swap(m_grid, m_grid_next);
 }
@@ -190,7 +190,6 @@ CountAndHue AutomataSimulator::GetNeighborCountAndAverageColor(int idx)
 
 void AutomataSimulator::ApplyAutomataRule(int idx, CountAndHue count_hue)
 {
-    Debug_SetConwaysGameOfLifeRule();
 
     int cell_state_int = m_grid[idx].state;
     
@@ -253,6 +252,7 @@ bool AutomataSimulator::IsOutOfBounds(const math::ivec2& v)
 
 void AutomataSimulator::Debug_SetConwaysGameOfLifeRule()
 {
+    m_range = 1;
     m_max_states = 2;
     m_born.clear();
     m_survive.clear();

@@ -33,6 +33,9 @@ int main(int argc, char* argv[])
     grid[id1] = cell;
     grid[id2] = cell;
     grid[id3] = cell;
+    auto_sim.Debug_SetConwaysGameOfLifeRule();
+    auto_sim.DebugPrint();
+    auto_sim.Step();
     auto_sim.DebugPrint();
     auto_sim.Step();
     auto_sim.DebugPrint();
