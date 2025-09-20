@@ -21,8 +21,22 @@ int main(int argc, char* argv[])
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dist(0, 255);
 
-    AutomataSimulator auto_sim(5, 4);
+    AutomataSimulator auto_sim(7, 7);
     auto_sim.DebugPrint();
+
+    int id1 = auto_sim.GetIndex(math::ivec2{1,3});
+    int id2 = auto_sim.GetIndex(math::ivec2{2,3});
+    int id3 = auto_sim.GetIndex(math::ivec2{3,3});
+    Cell cell(1, HSVColor{ 0.5f, 1.0f, 1.0f });
+
+    auto& grid = *auto_sim.GetGrid(); 
+    grid[id1] = cell;
+    grid[id2] = cell;
+    grid[id3] = cell;
+    auto_sim.DebugPrint();
+    auto_sim.Step();
+    auto_sim.DebugPrint();
+     
 
     int status = 0;
     Window window(1280, 720, "Cellular Automata");
