@@ -116,7 +116,18 @@ bool AutomataSimulator::ParseRule(std::string& rule_string, bool is_born_rule)
         }
         else
         {
+            int a = std::stoi(rule.substr(0, dash));
+            int b = std::stoi(rule.substr(dash + 1));
 
+            if (a > b)
+            {
+                std::swap(a, b);
+            }
+            
+            for (size_t i = a; i <= b; i++)
+            {
+                rule_set.insert(i);
+            }
         }
     }
 

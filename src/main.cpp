@@ -35,17 +35,15 @@ int main(int argc, char* argv[])
     grid[id1] = cell;
     grid[id2] = cell;
     grid[id3] = cell;
-    auto_sim.Debug_SetConwaysGameOfLifeRule();
+   // auto_sim.Debug_SetConwaysGameOfLifeRule();
     auto_sim.DebugPrint();
     auto_sim.Step();
     auto_sim.DebugPrint();
     auto_sim.Step();
     auto_sim.DebugPrint();
 
-
-    std::string my_test = "      7-3,4   -  6,   7,9  ";
-    auto_sim.ParseRule(my_test, true);
-     
+    //std::string my_test = "      7-3,4   -  6,   7,9  ";
+    //auto_sim.ParseRule(my_test, true);
 
     int status = 0;
     Window window(1280, 720, "Cellular Automata");
