@@ -186,9 +186,16 @@ int main(int argc, char* argv[])
                 renderer.BeginRenderPass();
                 SDL_GPURenderPass* render_pass = renderer.GetRenderPass();
                 
-                /*
-                rects.Draw(render_pass);
-                */
+                // bind pipeline, verter buffer, and the ca texture + sampler at FS slot 0
+                SDL_BindGPUGraphicsPipeline(render_pass, grid_pipeline);
+                SDL_GPUBufferBinding vertex_buffer{ .buffer=grid_vertex_buffer, .offset=0};
+                SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_buffer, 1);
+
+                SDL_GPUTextureSamplerBinding texture_sampling{ .texture=cellular_automata_texture, .sampler=nearest_sampler };
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &texture_sampling, 1);
+
+                SDL_DrawGPUPrimitives(render_pass, 3, 1, 0, 0);
+
                 imgui_manager.Draw(render_pass, renderer.GetCommandBuffer());
                 renderer.EndRenderPass();
             }
