@@ -85,6 +85,51 @@ int main(int argc, char* argv[])
         
         Renderer renderer(&window);
 
+        
+        // CA Create GPU Texture
+        SDL_GPUTexture* cellular_automata_texture = nullptr;
+        {
+            SDL_GPUTextureCreateInfo texture_info{};
+            texture_info.type = SDL_GPU_TEXTURETYPE_2D;
+            texture_info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+            texture_info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+            texture_info.width = auto_sim.GetWidth();
+            texture_info.height = auto_sim.GetHeight();
+            texture_info.layer_count_or_depth = 1;
+            texture_info.num_levels = 1;
+            cellular_automata_texture = SDL_CreateGPUTexture(window.GetGPUDevice(), &texture_info);
+            // will handle if nullptr after....
+        }
+
+        // CA Create GPU Transfer Buffer
+        SDL_GPUTransferBuffer* transfer_buffer = nullptr;
+        {
+            SDL_GPUTransferBufferCreateInfo upload{};
+            upload.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+            upload.size = auto_sim.GetWidth() * auto_sim.GetHeight() * 4;
+            transfer_buffer = SDL_CreateGPUTransferBuffer(window.GetGPUDevice(), &upload); 
+            // will hanlde if nullptr after...
+        }
+
+        // for crisp scaling in imgui
+        SDL_GPUSampler* nearest_sampler = nullptr;
+        {
+            SDL_GPUSamplerCreateInfo sampler_info{};
+            sampler_info.min_filter = SDL_GPU_FILTER_NEAREST;
+            sampler_info.mag_filter = SDL_GPU_FILTER_NEAREST;
+            sampler_info.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+            sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE; 
+            sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+            sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+            nearest_sampler = SDL_CreateGPUSampler(window.GetGPUDevice(), &sampler_info);
+            // will handle if nullptr after...
+        }
+
+        // --- will add textured-quad pipeline + vertex/index buffers (created once)
+        // SDL_CreateGPUGraphicsPipeline(...), SDL_CreateGPUBuffer(...), etc.
+        // (Bind pos+uv; fragment samples caTex with 'nearest')
+        
+
         window.StartRun();
         while (window.IsRunning())
         {
@@ -98,64 +143,53 @@ int main(int argc, char* argv[])
             imgui_manager.BeginFrame();
             imgui_manager.Build();
             imgui_manager.EndFrame();
-            
             auto* draw_data = imgui_manager.GetDrawData();
             const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
     
-            // CA Create GPU Texture
-            SDL_GPUTexture* cellular_automata_texture = nullptr;
-            {
-                SDL_GPUTextureCreateInfo texture_info{};
-                texture_info.type = SDL_GPU_TEXTURETYPE_2D;
-                texture_info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-                texture_info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-                texture_info.width = auto_sim.GetWidth();
-                texture_info.height = auto_sim.GetHeight();
-                texture_info.layer_count_or_depth = 1;
-                texture_info.num_levels = 1;
-                cellular_automata_texture = SDL_CreateGPUTexture(window.GetGPUDevice(), &texture_info);
-                // will handle if nullptr after....
-            }
-
-            // CA Create GPU Transfer Buffer
-            SDL_GPUTransferBuffer* transfer_buffer = nullptr;
-            {
-                SDL_GPUTransferBufferCreateInfo upload{};
-                upload.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-                upload.size = auto_sim.GetWidth() * auto_sim.GetHeight() * 4;
-                transfer_buffer = SDL_CreateGPUTransferBuffer(window.GetGPUDevice(), &upload); 
-                // will hanlde if nullptr after...
-            }
-
-            // for crisp scaling in imgui
-            SDL_GPUSampler* nearest_sampler = nullptr;
-            {
-                SDL_GPUSamplerCreateInfo sampler_info{};
-                sampler_info.min_filter = SDL_GPU_FILTER_NEAREST;
-                sampler_info.mag_filter = SDL_GPU_FILTER_NEAREST;
-                sampler_info.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
-                sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE; 
-                sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-                sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-                nearest_sampler = SDL_CreateGPUSampler(window.GetGPUDevice(), &sampler_info);
-            }
+            
+            const auto& grid = auto_sim.GetGrid();
+            std::vector<uint32_t> pixels(auto_sim.GetWidth() * auto_sim.GetHeight());
+            // will map cell to RGBA8
             
             renderer.AcquireCommandBuffer();
-            SDL_GPUCommandBuffer* cmd = renderer.GetCommandBuffer();
+            SDL_GPUCommandBuffer* command_buffer = renderer.GetCommandBuffer();
 
-           imgui_manager.Prepare(renderer.GetCommandBuffer());
-            // Uint32 fbW=0, fbH=0;
+            // upload pixels to ca texture in a COPY PASS
+            void* dst = SDL_MapGPUTransferBuffer(window.GetGPUDevice(), transfer_buffer, true);
+            memcpy(dst, pixels.data(), pixels.size() * sizeof(uint32_t));
+            SDL_UnmapGPUTransferBuffer(window.GetGPUDevice(), transfer_buffer);
+
+            SDL_GPUCopyPass* copy_pass = SDL_BeginGPUCopyPass(command_buffer);
+            SDL_GPUTextureTransferInfo tti{};
+            tti.transfer_buffer = transfer_buffer;
+            tti.offset = 0;
+            tti.pixels_per_row = 0;
+            tti.rows_per_layer = 0;
+            SDL_GPUTextureRegion dst_region{};
+            dst_region.texture = cellular_automata_texture;
+            dst_region.mip_level = 0;
+            dst_region.layer = 0;
+            dst_region.x=0; dst_region.y=0; dst_region.z=0;
+            dst_region.w = auto_sim.GetWidth();
+            dst_region.h = auto_sim.GetHeight();
+            dst_region.d = 1;
+            SDL_UploadToGPUTexture(copy_pass, &tti, &dst_region, true);
+            SDL_EndGPUCopyPass(copy_pass);
+
+
+            imgui_manager.Prepare(renderer.GetCommandBuffer());
             renderer.AcquireSwapchainTexture();
             auto* swapchain_texture = renderer.GetSwapchainTexture();
             if (swapchain_texture != nullptr && !is_minimized)
             {
                 renderer.SetColorTargetInfo(math::RGBAColor(0.0f, 0.0f, 0.0f, 1.0f));
                 renderer.BeginRenderPass();
+                SDL_GPURenderPass* render_pass = renderer.GetRenderPass();
                 
                 /*
                 rects.Draw(render_pass);
                 */
-                imgui_manager.Draw(renderer.GetRenderPass(), renderer.GetCommandBuffer());
+                imgui_manager.Draw(render_pass, renderer.GetCommandBuffer());
                 renderer.EndRenderPass();
             }
             renderer.SubmitCommandBuffer();
