@@ -140,6 +140,23 @@ int main(int argc, char* argv[])
             }
             
             renderer.AcquireCommandBuffer();
+            SDL_GPUCommandBuffer* cmd = renderer.GetCommandBuffer();
+
+            // Start COPY PASS upload grid to texture
+            {
+                SDL_GPUCopyPass* copy_pass = SDL_BeginGPUCopyPass(cmd);
+
+                void* dst = SDL_MapGPUTransferBuffer(window.GetGPUDevice(), transfer_buffer, true);
+
+                memcpy(dst, rgba_bytes.data(), auto_sim.GetWidth() * auto_sim.GetHeight() * 4);
+                SDL_UnmapGPUTransferBuffer(window.GetGPUDevice(), transfer_buffer);
+
+            }
+
+            SDL_GPUTextureTransferInfo src{};
+            src.transfer_buffer = transfer_buffer;
+            src.offset = 0;
+            src.;
       
             
 
