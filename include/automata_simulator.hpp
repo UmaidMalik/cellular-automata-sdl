@@ -52,6 +52,8 @@ class AutomataSimulator
         int GetRange();
         int GetMaxStates();
         std::vector<Cell>* GetGrid();
+        int GetWidth();
+        int GetHeight();
 
         void Step();
         
@@ -309,4 +311,14 @@ void AutomataSimulator::Debug_SetConwaysGameOfLifeRule()
     m_born.insert(3);
     m_survive.insert(2);
     m_survive.insert(3);
+}
+
+int AutomataSimulator::GetWidth()
+{
+    return m_width;
+}
+
+int AutomataSimulator::GetHeight()
+{
+    return m_height;
 }

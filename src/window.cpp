@@ -160,3 +160,4 @@ bool Window::IsRunning()
 {
     return m_running;
 }
+
