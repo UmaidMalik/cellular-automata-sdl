@@ -1,7 +1,7 @@
 #pragma once
 
-#include "imgui_impl_sdl3.h"
-#include "imgui_impl_sdlgpu3.h"
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_gpu.h>
 #include "math.hpp"
 #include "window.hpp"
 #include <iostream>

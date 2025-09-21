@@ -1,5 +1,6 @@
 #include <iostream>
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_gpu.h>
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
@@ -141,10 +142,6 @@ int main(int argc, char* argv[])
             
             renderer.AcquireCommandBuffer();
             SDL_GPUCommandBuffer* cmd = renderer.GetCommandBuffer();
-
-           
-      
-            
 
            imgui_manager.Prepare(renderer.GetCommandBuffer());
             // Uint32 fbW=0, fbH=0;
