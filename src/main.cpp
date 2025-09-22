@@ -80,18 +80,18 @@ int main(int argc, char* argv[])
 
     if (formats & SDL_GPU_SHADERFORMAT_SPIRV)
     {
-        vertex_shader = load("shaders/grid_fullscreen_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_SPIRV);
-        fragment_shader = load("shaders/grid_sample_rgba8.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_SPIRV);
+        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_SPIRV);
+        fragment_shader = load("shaders/build/grid_sample_rgba8.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_SPIRV);
     }
     else if (formats & SDL_GPU_SHADERFORMAT_DXIL)
     {
-        vertex_shader = load("shaders/grid_fullscreen_triangle.vs.dxil", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_DXIL);
-        fragment_shader = load("shaders/grid_sample_rgba8.ps.dxil", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_DXIL);
+        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vs.dxil", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_DXIL);
+        fragment_shader = load("shaders/build/grid_sample_rgba8.ps.dxil", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_DXIL);
     }
     else if (formats & SDL_GPU_SHADERFORMAT_MSL)
     {
-        vertex_shader = load("shaders/grid_fullscreen_triangle.vert.msl", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_MSL);
-        fragment_shader = load("shaders/grid_sample_rgba8.frag.msl", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_MSL);
+        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.msl", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_MSL);
+        fragment_shader = load("shaders/build/grid_sample_rgba8.frag.msl", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_MSL);
     }
     else {
         std::cerr << "No supported precompiled shader format found.\n";
