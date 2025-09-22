@@ -26,6 +26,7 @@ class Renderer
         SDL_GPURenderPass* GetRenderPass();
         void EndRenderPass();
         void SubmitCommandBuffer();
+        SDL_GPUTextureFormat GetSwapchainFormat() const;
 
 };
 
@@ -91,3 +92,8 @@ void Renderer::SubmitCommandBuffer()
 {
     SDL_SubmitGPUCommandBuffer(m_command_buffer);
 }
+
+SDL_GPUTextureFormat Renderer::GetSwapchainFormat() const
+{
+    return SDL_GetGPUSwapchainTextureFormat(m_window->GetGPUDevice(), m_window->GetSDLWindow());
+} 

@@ -18,6 +18,8 @@
 #include <regex>
 #include "utility.hpp"
 
+static std::vector<uint8_t> ReadFile(const char* path);
+
 int main(int argc, char* argv[])
 {
     std::random_device rd;
@@ -51,19 +53,6 @@ int main(int argc, char* argv[])
     auto_sim.Step();
     auto_sim.DebugPrint();
 
-    /*
-        m_range = 1;
-    m_max_states = 2;
-    m_born.clear();
-    m_survive.clear();
-    m_born.insert(3);
-    m_survive.insert(2);
-    m_survive.insert(3);
-    */
-
-    //std::string my_test = "      7-3,4   -  6,   7,9  ";
-    //auto_sim.ParseRule(my_test, true);
-
     int status = 0;
     Window window(1280, 720, "Cellular Automata");
     if (!window.SetupWindow())
@@ -72,7 +61,52 @@ int main(int argc, char* argv[])
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Ran into an error during window setup :(", nullptr);
         return 1;
     }
-    
+
+    SDL_GPUShaderFormat formats = SDL_GetGPUShaderFormats(window.GetGPUDevice());
+    auto load = [&](const char* path, SDL_GPUShaderStage stage, SDL_GPUShaderFormat format)
+    {
+        std::vector<uint8_t> bytes = ReadFile(path);
+        SDL_GPUShaderCreateInfo info{};
+        info.stage = stage;
+        info.format = format;
+        info.entrypoint = "main";
+        info.code = bytes.data();
+        info.code_size = bytes.size();
+        return SDL_CreateGPUShader(window.GetGPUDevice(), &info);
+    };
+
+    SDL_GPUShader* vertex_shader = nullptr;
+    SDL_GPUShader* fragment_shader = nullptr;
+
+    if (formats & SDL_GPU_SHADERFORMAT_SPIRV)
+    {
+        vertex_shader = load("shaders/grid_fullscreen_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_SPIRV);
+        fragment_shader = load("shaders/grid_sample_rgba8.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_SPIRV);
+    }
+    else if (formats & SDL_GPU_SHADERFORMAT_DXIL)
+    {
+        vertex_shader = load("shaders/grid_fullscreen_triangle.vs.dxil", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_DXIL);
+        fragment_shader = load("shaders/grid_sample_rgba8.ps.dxil", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_DXIL);
+    }
+    else if (formats & SDL_GPU_SHADERFORMAT_MSL)
+    {
+        vertex_shader = load("shaders/grid_fullscreen_triangle.vert.msl", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_MSL);
+        fragment_shader = load("shaders/grid_sample_rgba8.frag.msl", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_MSL);
+    }
+    else {
+        std::cerr << "No supported precompiled shader format found.\n";
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "No supported precompiled shader format found :(", nullptr);
+        return 1;
+    }
+
+    if (!vertex_shader || !fragment_shader)
+    {
+        std::cerr << "Vertex or fragment shader not loaded\n";
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Vertex or fragment shader not loaded :(", nullptr);
+        return 1;
+    }
+
+
     {
         ImGuiManager imgui_manager(&window);
         imgui_manager.CreateAndSetupContext();
@@ -85,7 +119,21 @@ int main(int argc, char* argv[])
         
         Renderer renderer(&window);
 
-        
+        SDL_GPUVertexInputState vertex_input_state{};
+        SDL_GPUColorTargetDescription color_target{};
+        color_target.format = renderer.GetSwapchainFormat();
+
+        // pipeline
+        SDL_GPUGraphicsPipelineCreateInfo pipeline_info{};
+        pipeline_info.vertex_shader = vertex_shader;
+        pipeline_info.fragment_shader = fragment_shader;
+        pipeline_info.vertex_input_state = vertex_input_state;
+        pipeline_info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+    
+        SDL_GPUGraphicsPipeline* grid_pipeline = SDL_CreateGPUGraphicsPipeline(window.GetGPUDevice(), &pipeline_info);
+
+
+
         // CA Create GPU Texture
         SDL_GPUTexture* cellular_automata_texture = nullptr;
         {
@@ -148,8 +196,26 @@ int main(int argc, char* argv[])
     
             
             const auto& grid = auto_sim.GetGrid();
-            std::vector<uint32_t> pixels(auto_sim.GetWidth() * auto_sim.GetHeight());
+            int W = auto_sim.GetWidth();
+            int H = auto_sim.GetHeight();
+            std::vector<uint32_t> pixels(W * H);
             // will map cell to RGBA8
+
+            auto map_color = [](const Cell& cell)->uint32_t
+            {
+                math::RGBColor color = math::HSVtoRGB(cell.color);
+                uint8_t r = uint8_t(color.r * 255);
+                uint8_t g = uint8_t(color.g * 255);
+                uint8_t b = uint8_t(color.b * 255);
+                uint8_t a = 255;
+                return (uint32_t(r)) | (uint32_t(g)<<8) | (uint32_t(b)<<16) | (uint32_t(a)<<24);
+            };
+
+            const auto& grid_data = *auto_sim.GetGrid();
+            for (int i = 0; i < grid_data.size(); i++)
+            {
+                pixels[i] = map_color(grid_data[i]);
+            }
             
             renderer.AcquireCommandBuffer();
             SDL_GPUCommandBuffer* command_buffer = renderer.GetCommandBuffer();
@@ -187,15 +253,19 @@ int main(int argc, char* argv[])
                 SDL_GPURenderPass* render_pass = renderer.GetRenderPass();
                 
                 // bind pipeline, verter buffer, and the ca texture + sampler at FS slot 0
-                //SDL_BindGPUGraphicsPipeline(render_pass, grid_pipeline);
-                //SDL_GPUBufferBinding vertex_buffer{ .buffer=grid_vertex_buffer, .offset=0};
-                //SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_buffer, 1);
+                SDL_BindGPUGraphicsPipeline(render_pass, grid_pipeline);
 
                 SDL_GPUTextureSamplerBinding texture_sampling{ .texture=cellular_automata_texture, .sampler=nearest_sampler };
+
                 SDL_BindGPUFragmentSamplers(render_pass, 0, &texture_sampling, 1);
 
                 SDL_DrawGPUPrimitives(render_pass, 3, 1, 0, 0);
 
+                //SDL_GPUBufferBinding vertex_buffer{ .buffer=grid_vertex_buffer, .offset=0};
+                //SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_buffer, 1);
+
+                
+        
                 imgui_manager.Draw(render_pass, renderer.GetCommandBuffer());
                 renderer.EndRenderPass();
             }
@@ -205,3 +275,17 @@ int main(int argc, char* argv[])
     return 0;
 }
 
+static std::vector<uint8_t> ReadFile(const char* path)
+{
+    std::FILE* file = std::fopen(path, "rb");
+    if (!file)
+    {
+        return {};
+    }
+    std::fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    std::fseek(file, 0, SEEK_SET);
+    std::vector<uint8_t> buffer(size);
+    std::fclose(file);
+    return buffer;
+}
