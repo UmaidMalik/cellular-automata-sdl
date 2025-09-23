@@ -330,7 +330,7 @@ int main(int argc, char* argv[])
                 renderer.SetColorTargetInfo(math::RGBAColor(0.0f, 0.0f, 0.0f, 1.0f));
                 renderer.BeginRenderPass();
                 SDL_GPURenderPass* render_pass = renderer.GetRenderPass();
-                imgui_manager.Draw(render_pass, renderer.GetCommandBuffer());
+                
                 // bind pipeline, verter buffer, and the ca texture + sampler at FS slot 0
                 SDL_BindGPUGraphicsPipeline(render_pass, grid_pipeline);
 
@@ -343,7 +343,8 @@ int main(int argc, char* argv[])
                 SDL_BindGPUFragmentSamplers(render_pass, 0, &texture_sampling, 1);
 
                 SDL_DrawGPUPrimitives(render_pass, 3, 1, 0, 0);
-        
+                
+                imgui_manager.Draw(render_pass, renderer.GetCommandBuffer());
                 
                 renderer.EndRenderPass();
             }

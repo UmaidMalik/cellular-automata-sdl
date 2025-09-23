@@ -1,3 +1,4 @@
+/*
 #version 450
 layout(location=0) out vec2 vUV;
 void main() {
@@ -8,7 +9,7 @@ void main() {
     vec2 pos = uv * 2.0 - 1.0;
     gl_Position = vec4(pos, 0.0, 1.0);
 }
-/*
+*/
 
 #version 450
 
@@ -21,4 +22,3 @@ void main()
     gl_Position = vec4(pos[gl_VertexIndex], 0.0, 1.0);
     vUV = uv[gl_VertexIndex];
 }
-*/
