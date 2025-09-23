@@ -44,9 +44,9 @@ int main(int argc, char* argv[])
     grid[id2] = cell2;
     grid[id3] = cell3;
     //auto_sim.Debug_SetConwaysGameOfLifeRule();
-    std::string str1 = "1";
-    std::string str2 = "1";
-    auto_sim.SetDecay(0.95f);
+    std::string str1 = "2-5";
+    std::string str2 = "3-4";
+    auto_sim.SetDecay(0.f);
     auto_sim.SetRange(1);
     auto_sim.SetMaxStates(2);
     auto_sim.ParseRule(str1, true);
@@ -258,11 +258,6 @@ int main(int argc, char* argv[])
             }
         }
 
-        // --- will add textured-quad pipeline + vertex/index buffers (created once)
-        // SDL_CreateGPUGraphicsPipeline(...), SDL_CreateGPUBuffer(...), etc.
-        // (Bind pos+uv; fragment samples caTex with 'nearest')
-        
-
         window.StartRun();
         while (window.IsRunning())
         {
@@ -299,7 +294,7 @@ int main(int argc, char* argv[])
             const size_t n = std::min(pixels.size(), grid_data.size());
             for (size_t i = 0; i < n; ++i)
             {
-                bool on = (grid_data[i].state != 0);
+                //bool on = (grid_data[i].state != 0);
                 //pixels[i] = on ? 0xFFFF00FFu : 0xFF505050u;
                 pixels[i] = MapColor(grid_data[i]);
            
@@ -341,7 +336,6 @@ int main(int argc, char* argv[])
             }
             SDL_UploadToGPUTexture(copy_pass, &tti, &dst_region, true);
             SDL_EndGPUCopyPass(copy_pass);
-
 
             imgui_manager.Prepare(renderer.GetCommandBuffer());
             renderer.AcquireSwapchainTexture();
