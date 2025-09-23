@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
     //std::mt19937 gen(rd());
     //std::uniform_int_distribution<> dist(0, 255);
 
-    AutomataSimulator auto_sim(64, 36);
+    AutomataSimulator auto_sim(320, 180);
     //auto_sim.DebugPrint();
 
     
@@ -35,15 +35,17 @@ int main(int argc, char* argv[])
     int id1 = auto_sim.GetIndex(math::ivec2{1,3});
     int id2 = auto_sim.GetIndex(math::ivec2{2,3});
     int id3 = auto_sim.GetIndex(math::ivec2{3,3});
-    Cell cell(1, HSVColor{ 0.5f, 1.0f, 1.0f });
+    Cell cell1(1, HSVColor{ 0.5f, 1.0f, 1.0f });
+    Cell cell2(1, HSVColor{ 1.0f, 0.75f, 1.0f });
+    Cell cell3(1, HSVColor{ 0.5f, 1.0f, 0.5f });
 
     auto& grid = *auto_sim.GetGrid(); 
-    grid[id1] = cell;
-    grid[id2] = cell;
-    grid[id3] = cell;
+    grid[id1] = cell1;
+    grid[id2] = cell2;
+    grid[id3] = cell3;
     //auto_sim.Debug_SetConwaysGameOfLifeRule();
-    std::string str1 = "3";
-    std::string str2 = "2-3";
+    std::string str1 = "1";
+    std::string str2 = "1";
     auto_sim.SetRange(1);
     auto_sim.SetMaxStates(2);
     auto_sim.ParseRule(str1, true);

@@ -33,7 +33,7 @@ class AutomataSimulator
         vector m_grid_next;
         float m_saturation = 1.0f;
         float m_value = 1.0f;
-        float m_decay_rate = 0.0f;
+        float m_decay_rate = 0.9f;
     public:
         AutomataSimulator(int w, int h);
         ~AutomataSimulator();

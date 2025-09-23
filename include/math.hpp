@@ -116,36 +116,46 @@ namespace math
         }
     };
     
-    RGBColor HSVtoRGB(HSVColor hsv_color);
+    RGBColor HSVtoRGB(HSVColor hsv);
 
-    HSVColor RGBtoHSV(RGBColor rgb_color);
+    HSVColor RGBtoHSV(RGBColor rgb);
 
     float fract(float x);
 };
 
-math::RGBColor math::HSVtoRGB(HSVColor hsv_color)
+math::RGBColor math::HSVtoRGB(HSVColor hsv)
 {
-    float h = hsv_color.h, s = hsv_color.s, v = hsv_color.v;
-    
-    float kR = 5.0f, kG = 3.0f, kB = 1.0f;
+    float h = hsv.h, s = hsv.s, v = hsv.v;
 
-    auto f = [](float n, float h)
-    {
-        float x = math::fract(h + n);
-        float t = x * 6.0f;
-        return std::clamp(std::min(t - 3.0f, 4.0f - t), 0.0f, 1.0f);
-    };
+  
+    if (!std::isfinite(h)) h = 0.0f;
+    h = h - std::floor(h); 
+    s = std::clamp(s, 0.0f, 1.0f);
+    v = std::clamp(v, 0.0f, 1.0f);
 
-    float r = (1.0f - s * (1.0f - f(kR, h)));
-    float g = (1.0f - s * (1.0f - f(kG, h)));
-    float b = (1.0f - s * (1.0f - f(kB, h)));
+    if (s <= 0.0f) return { v, v, v };
 
-    return math::RGBColor{ r, g, b };
+    float hh = h * 6.0f;
+    int   i  = (int)std::floor(hh);
+    float f  = hh - (float)i;
+
+    float p = v * (1.0f - s);
+    float q = v * (1.0f - s * f);
+    float t = v * (1.0f - s * (1.0f - f));
+
+    switch (i % 6) {
+        case 0: return { v, t, p };
+        case 1: return { q, v, p };
+        case 2: return { p, v, t };
+        case 3: return { p, q, v };
+        case 4: return { t, p, v };
+        default:return { v, p, q };
+    }
 }
 
-math::HSVColor math::RGBtoHSV(RGBColor rgb_color)
+math::HSVColor math::RGBtoHSV(RGBColor rgb)
 {
-    float r = rgb_color.r, g = rgb_color.g, b = rgb_color.b;
+    float r = rgb.r, g = rgb.g, b = rgb.b;
     float c_max = std::max({ r, g, b });
     float c_min = std::min({ r, g, b });
     float delta = c_max - c_min;
