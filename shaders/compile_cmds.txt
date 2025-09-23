@@ -1,0 +1,12 @@
+# From your project root
+mkdir -p build/shaders
+
+# Vertex
+glslc grid_fullscreen_triangle.vert -O \
+  --target-env=vulkan1.2 \
+  -o build/grid_fullscreen_triangle.vert.spv
+
+# Fragment
+glslc grid_sample_rgba8.frag -O \
+  --target-env=vulkan1.2 \
+  -o build/grid_sample_rgba8.frag.spv

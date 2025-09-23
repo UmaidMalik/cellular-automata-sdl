@@ -23,12 +23,12 @@ static std::vector<uint8_t> ReadFile(const char* path);
 
 int main(int argc, char* argv[])
 {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dist(0, 255);
+    //std::random_device rd;
+    //std::mt19937 gen(rd());
+    //std::uniform_int_distribution<> dist(0, 255);
 
-    AutomataSimulator auto_sim(7, 7);
-    auto_sim.DebugPrint();
+    AutomataSimulator auto_sim(128, 72);
+    //auto_sim.DebugPrint();
 
     
 
@@ -48,11 +48,15 @@ int main(int argc, char* argv[])
     auto_sim.SetMaxStates(2);
     auto_sim.ParseRule(str1, true);
     auto_sim.ParseRule(str2, false);
-    auto_sim.DebugPrint();
+    //auto_sim.DebugPrint();
     auto_sim.Step();
-    auto_sim.DebugPrint();
+    //auto_sim.DebugPrint();
     auto_sim.Step();
-    auto_sim.DebugPrint();
+    //auto_sim.DebugPrint();
+
+    SDL_SetLogPriorities(SDL_LOG_PRIORITY_VERBOSE);
+    SDL_SetHint(SDL_HINT_DEBUG_LOGGING, "1");
+     
 
     int status = 0;
     Window window(1280, 720, "Cellular Automata");
@@ -277,7 +281,7 @@ int main(int argc, char* argv[])
             for (size_t i = 0; i < n; ++i)
             {
                 //pixels[i] = map_color(grid_data[i]);
-                pixels[i] = 0xFF00FFFF;
+                pixels[i] = 0xFF00FFFFu;
             }
             
             renderer.AcquireCommandBuffer();
@@ -294,25 +298,26 @@ int main(int argc, char* argv[])
             std::memcpy(dst, pixels.data(), pixels.size() * sizeof(uint32_t));
             SDL_UnmapGPUTransferBuffer(window.GetGPUDevice(), transfer_buffer);
 
+
+            SDL_GPUTextureTransferInfo tti{};
+            tti.transfer_buffer = transfer_buffer;
+            tti.offset = 0;
+            tti.pixels_per_row = W;
+            tti.rows_per_layer = H;
+
+            SDL_GPUTextureRegion dst_region{};
+            dst_region.texture = cellular_automata_texture;
+            dst_region.mip_level = 0;
+            dst_region.layer = 0;
+            dst_region.x = 0; dst_region.y = 0; dst_region.z = 0;
+            dst_region.w = W; dst_region.h = H; dst_region.d = 1;
+            
             SDL_GPUCopyPass* copy_pass = SDL_BeginGPUCopyPass(command_buffer);
             if (!copy_pass)
             {
                 std::cerr << "Error: Failed to begin Copy Pass: " << SDL_GetError() << "\n";
                 return 1;
             }
-            SDL_GPUTextureTransferInfo tti{};
-            tti.transfer_buffer = transfer_buffer;
-            tti.offset = 0;
-            tti.pixels_per_row = 0;
-            tti.rows_per_layer = 0;
-            SDL_GPUTextureRegion dst_region{};
-            dst_region.texture = cellular_automata_texture;
-            dst_region.mip_level = 0;
-            dst_region.layer = 0;
-            dst_region.x=0; dst_region.y=0; dst_region.z=0;
-            dst_region.w = auto_sim.GetWidth();
-            dst_region.h = auto_sim.GetHeight();
-            dst_region.d = 1;
             SDL_UploadToGPUTexture(copy_pass, &tti, &dst_region, true);
             SDL_EndGPUCopyPass(copy_pass);
 
@@ -325,7 +330,7 @@ int main(int argc, char* argv[])
                 renderer.SetColorTargetInfo(math::RGBAColor(0.0f, 0.0f, 0.0f, 1.0f));
                 renderer.BeginRenderPass();
                 SDL_GPURenderPass* render_pass = renderer.GetRenderPass();
-                
+                imgui_manager.Draw(render_pass, renderer.GetCommandBuffer());
                 // bind pipeline, verter buffer, and the ca texture + sampler at FS slot 0
                 SDL_BindGPUGraphicsPipeline(render_pass, grid_pipeline);
 
@@ -339,7 +344,7 @@ int main(int argc, char* argv[])
 
                 SDL_DrawGPUPrimitives(render_pass, 3, 1, 0, 0);
         
-                imgui_manager.Draw(render_pass, renderer.GetCommandBuffer());
+                
                 renderer.EndRenderPass();
             }
             renderer.SubmitCommandBuffer();
