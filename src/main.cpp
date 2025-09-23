@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
     //std::mt19937 gen(rd());
     //std::uniform_int_distribution<> dist(0, 255);
 
-    AutomataSimulator auto_sim(400, 300);
+    AutomataSimulator auto_sim(250, 250);
     //auto_sim.DebugPrint();
 
     
