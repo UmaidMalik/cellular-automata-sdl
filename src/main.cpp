@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
     //std::mt19937 gen(rd());
     //std::uniform_int_distribution<> dist(0, 255);
 
-    AutomataSimulator auto_sim(128, 72);
+    AutomataSimulator auto_sim(400, 300);
     //auto_sim.DebugPrint();
 
     
@@ -42,8 +42,8 @@ int main(int argc, char* argv[])
     grid[id2] = cell;
     grid[id3] = cell;
     //auto_sim.Debug_SetConwaysGameOfLifeRule();
-    std::string str1 = "0-9";
-    std::string str2 = " 0-9";
+    std::string str1 = "3";
+    std::string str2 = "2-3";
     auto_sim.SetRange(1);
     auto_sim.SetMaxStates(2);
     auto_sim.ParseRule(str1, true);
@@ -269,6 +269,7 @@ int main(int argc, char* argv[])
                 SDL_Delay(10);
                 continue;
             }
+            auto_sim.Step();
 
             imgui_manager.BeginFrame();
             imgui_manager.Build();
@@ -282,7 +283,7 @@ int main(int argc, char* argv[])
             int H = auto_sim.GetHeight();
             std::vector<uint32_t> pixels(W * H);
            
-            auto map_color = [](const Cell& cell)->uint32_t
+            auto MapColor = [](const Cell& cell)->uint32_t
             {
                 math::RGBColor color = math::HSVtoRGB(cell.color);
                 uint8_t r = uint8_t(color.r * 255);
@@ -295,7 +296,9 @@ int main(int argc, char* argv[])
             const size_t n = std::min(pixels.size(), grid_data.size());
             for (size_t i = 0; i < n; ++i)
             {
-                pixels[i] = map_color(grid_data[i]);
+                bool on = (grid_data[i].state != 0);
+                pixels[i] = on ? 0xFFFF00FFu : 0xFF000000u;
+                //pixels[i] = MapColor(grid_data[i]);
                 //pixels[i] = 0xFFFF00FFu;
             }
             
