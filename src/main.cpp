@@ -139,8 +139,20 @@ int main(int argc, char* argv[])
         SDL_GPUVertexInputState vertex_input_state{};
         SDL_GPUTextureFormat swapchain_format = renderer.GetSwapchainFormat();
 
+        SDL_GPUColorTargetBlendState blend_state{};
+        blend_state.enable_blend = false;
+        blend_state.enable_color_write_mask = true;
+        blend_state.color_write_mask =
+        (
+            SDL_GPU_COLORCOMPONENT_R |
+            SDL_GPU_COLORCOMPONENT_G |
+            SDL_GPU_COLORCOMPONENT_B |
+            SDL_GPU_COLORCOMPONENT_A
+        );
+
         SDL_GPUColorTargetDescription color_desc{};
         color_desc.format = swapchain_format;
+        color_desc.blend_state = blend_state;
 
         // bundle description into target info
         SDL_GPUGraphicsPipelineTargetInfo pipeline_target_info{};
