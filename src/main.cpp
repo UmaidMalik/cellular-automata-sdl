@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
     //std::mt19937 gen(rd());
     //std::uniform_int_distribution<> dist(0, 255);
 
-    AutomataSimulator auto_sim(250, 250);
+    AutomataSimulator auto_sim(64, 36);
     //auto_sim.DebugPrint();
 
     
@@ -297,7 +297,7 @@ int main(int argc, char* argv[])
             for (size_t i = 0; i < n; ++i)
             {
                 bool on = (grid_data[i].state != 0);
-                pixels[i] = on ? 0xFFFF00FFu : 0xFF000000u;
+                pixels[i] = on ? 0xFFFF00FFu : 0xFF505050u;
                 //pixels[i] = MapColor(grid_data[i]);
                 //pixels[i] = 0xFFFF00FFu;
             }
