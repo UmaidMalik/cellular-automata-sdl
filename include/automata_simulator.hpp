@@ -46,6 +46,7 @@ class AutomataSimulator
         void SetSurviveRule(uset survive);
         void SetRange(int range);
         void SetMaxStates(int max_states);
+        void SetDecay(float decay_rate);
 
         uset GetBornRule();
         uset GetSurviveRule();
@@ -54,6 +55,7 @@ class AutomataSimulator
         std::vector<Cell>* GetGrid();
         int GetWidth();
         int GetHeight();
+        float GetDecay();
 
         void Step();
         
@@ -166,6 +168,11 @@ void AutomataSimulator::SetMaxStates(int max_states)
     m_max_states = max_states;
 }
 
+void AutomataSimulator::SetDecay(float decay_rate)
+{
+    m_decay_rate = decay_rate;
+}
+
 uset AutomataSimulator::GetBornRule()
 {
     return m_born;
@@ -189,6 +196,11 @@ int AutomataSimulator::GetMaxStates()
 vector* AutomataSimulator::GetGrid()
 {
     return &m_grid;
+}
+
+float AutomataSimulator::GetDecay()
+{
+    return m_decay_rate;
 }
 
 void AutomataSimulator::Step()
