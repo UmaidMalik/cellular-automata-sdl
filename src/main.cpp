@@ -295,8 +295,8 @@ int main(int argc, char* argv[])
             const size_t n = std::min(pixels.size(), grid_data.size());
             for (size_t i = 0; i < n; ++i)
             {
-                //pixels[i] = map_color(grid_data[i]);
-                pixels[i] = 0xFF00FFFFu;
+                pixels[i] = map_color(grid_data[i]);
+                //pixels[i] = 0xFFFF00FFu;
             }
             
             renderer.AcquireCommandBuffer();
@@ -349,11 +349,9 @@ int main(int argc, char* argv[])
                 // bind pipeline, verter buffer, and the ca texture + sampler at FS slot 0
                 SDL_BindGPUGraphicsPipeline(render_pass, grid_pipeline);
 
-                SDL_GPUTextureSamplerBinding texture_sampling
-                { 
-                    .texture=cellular_automata_texture,
-                    .sampler=nearest_sampler
-                };
+                SDL_GPUTextureSamplerBinding texture_sampling{};
+                texture_sampling.texture = cellular_automata_texture;
+                texture_sampling.sampler = nearest_sampler;
 
                 SDL_BindGPUFragmentSamplers(render_pass, 0, &texture_sampling, 1);
 
@@ -365,6 +363,12 @@ int main(int argc, char* argv[])
             }
             renderer.SubmitCommandBuffer();
         }
+        SDL_ReleaseGPUTexture(window.GetGPUDevice(), cellular_automata_texture);
+        SDL_ReleaseGPUSampler(window.GetGPUDevice(), nearest_sampler);
+        SDL_ReleaseGPUTransferBuffer(window.GetGPUDevice(), transfer_buffer);
+        SDL_ReleaseGPUGraphicsPipeline(window.GetGPUDevice(), grid_pipeline);
+        SDL_ReleaseGPUShader(window.GetGPUDevice(), fragment_shader);
+        SDL_ReleaseGPUShader(window.GetGPUDevice(), vertex_shader);
     }
     return 0;
 }
