@@ -35,9 +35,9 @@ int main(int argc, char* argv[])
     int id1 = auto_sim.GetIndex(math::ivec2{1,3});
     int id2 = auto_sim.GetIndex(math::ivec2{2,3});
     int id3 = auto_sim.GetIndex(math::ivec2{3,3});
-    Cell cell1(1, HSVColor{ 0.5f, 1.0f, 1.0f });
-    Cell cell2(1, HSVColor{ 1.0f, 0.75f, 1.0f });
-    Cell cell3(1, HSVColor{ 0.5f, 1.0f, 0.5f });
+    Cell cell1(1, HSVColor{ 1.0f, 0.25f, 0.0f });
+    Cell cell2(1, HSVColor{ 1.0f, 0.75f, 0.5f });
+    Cell cell3(1, HSVColor{ 1.0f, 0.9f, 0.5f });
 
     auto& grid = *auto_sim.GetGrid(); 
     grid[id1] = cell1;
