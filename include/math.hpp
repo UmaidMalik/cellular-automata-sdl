@@ -136,9 +136,9 @@ math::RGBColor math::HSVtoRGB(HSVColor hsv_color)
         return std::clamp(std::min(t - 3.0f, 4.0f - t), 0.0f, 1.0f);
     };
 
-    float r = v * (1.0f - s * (1.0f - f(kR, h)));
-    float g = v * (1.0f - s * (1.0f - f(kG, h)));
-    float b = v * (1.0f - s * (1.0f - f(kB, h)));
+    float r = (1.0f - s * (1.0f - f(kR, h)));
+    float g = (1.0f - s * (1.0f - f(kG, h)));
+    float b = (1.0f - s * (1.0f - f(kB, h)));
 
     return math::RGBColor{ r, g, b };
 }

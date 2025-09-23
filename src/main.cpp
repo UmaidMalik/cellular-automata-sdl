@@ -297,9 +297,9 @@ int main(int argc, char* argv[])
             for (size_t i = 0; i < n; ++i)
             {
                 bool on = (grid_data[i].state != 0);
-                pixels[i] = on ? 0xFFFF00FFu : 0xFF505050u;
-                //pixels[i] = MapColor(grid_data[i]);
-                //pixels[i] = 0xFFFF00FFu;
+                //pixels[i] = on ? 0xFFFF00FFu : 0xFF505050u;
+                pixels[i] = MapColor(grid_data[i]);
+           
             }
             
             renderer.AcquireCommandBuffer();
