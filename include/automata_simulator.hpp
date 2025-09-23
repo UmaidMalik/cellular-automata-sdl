@@ -217,8 +217,8 @@ CountAndHue AutomataSimulator::GetNeighborCountAndAverageColor(int idx)
             x_coord = ((x + m_width) % m_width);
             y_coord = ((y + m_height) % m_height);
             int curr_idx = GetIndex(math::ivec2{ x_coord, y_coord });
-
-            if (IsOutOfBounds((math::ivec2){ x_coord, y_coord }))
+            math::ivec2 vec = { x_coord, y_coord };
+            if (IsOutOfBounds(vec))
             {
                 continue;
             }
