@@ -1,24 +1,15 @@
-/*
-#version 450
-layout(location=0) out vec2 vUV;
-void main() {
-    // Produce uv in [0,1] and clip in [-1,1]
-    const vec2 UV[3]  = vec2[3]( vec2(0.0,0.0), vec2(2.0,0.0), vec2(0.0,2.0) );
-    vec2 uv = UV[gl_VertexIndex] * 0.5;   // now 0..1
-    vUV = uv;
-    vec2 pos = uv * 2.0 - 1.0;
-    gl_Position = vec4(pos, 0.0, 1.0);
-}
-*/
-
 #version 450
 
 layout (location = 0) out vec2 vUV;
+layout (set=3, binding=0) uniform PresentBox { vec4 boxNDC; };
 
 void main()
 {
     const vec2 pos[3] = vec2[3]( vec2(-1.0,-1.0), vec2(3.0,-1.0), vec2(-1.0,3.0) );
     const vec2 uv[3] = vec2[3]( vec2(0.0,0.0), vec2(2.0,0.0), vec2(0.0,2.0) );
+    vec2 uv01 = uv[gl_VertexIndex] * 0.5;
+    vUV = uv01;
+    vec2 ndc = mix(boxNDC.xy, boxNDC.zw, uv01);
     gl_Position = vec4(pos[gl_VertexIndex], 0.0, 1.0);
-    vUV = uv[gl_VertexIndex];
+    
 }

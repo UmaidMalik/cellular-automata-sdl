@@ -20,6 +20,7 @@
 #include <cstring>
 
 static std::vector<uint8_t> ReadFile(const char* path);
+struct alignas(16) PresentUBO { float min_x, min_y, max_x, max_y; };
 
 int main(int argc, char* argv[])
 {
@@ -119,18 +120,18 @@ int main(int argc, char* argv[])
 
     if (formats & SDL_GPU_SHADERFORMAT_SPIRV)
     {
-        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_SPIRV, 0);
+        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_SPIRV, 0, 0, 0, 1);
         fragment_shader = load("shaders/build/grid_sample_rgba8.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_SPIRV, 1);
     }
     else if (formats & SDL_GPU_SHADERFORMAT_DXIL)
     {
-        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vs.dxil", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_DXIL);
-        fragment_shader = load("shaders/build/grid_sample_rgba8.ps.dxil", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_DXIL);
+        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vs.dxil", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_DXIL, 0, 0, 0, 1);
+        fragment_shader = load("shaders/build/grid_sample_rgba8.ps.dxil", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_DXIL, 1);
     }
     else if (formats & SDL_GPU_SHADERFORMAT_MSL)
     {
-        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.msl", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_MSL);
-        fragment_shader = load("shaders/build/grid_sample_rgba8.frag.msl", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_MSL);
+        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.msl", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_MSL, 0, 0, 0, 1);
+        fragment_shader = load("shaders/build/grid_sample_rgba8.frag.msl", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_MSL, 1);
     }
     else {
         std::cerr << "No supported precompiled shader format found.\n";
@@ -144,7 +145,6 @@ int main(int argc, char* argv[])
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Vertex or fragment shader not loaded :(", nullptr);
         return 1;
     }
-
 
     {
         ImGuiManager imgui_manager(&window);
@@ -182,13 +182,13 @@ int main(int argc, char* argv[])
         pipeline_target_info.num_color_targets          = 1;
         pipeline_target_info.has_depth_stencil_target   = false;
 
-        // set conservative rasterizer defaults
+        // set rasterizer defaults
         SDL_GPURasterizerState rasterizer_state{};
         rasterizer_state.fill_mode          = SDL_GPU_FILLMODE_FILL;
         rasterizer_state.cull_mode          = SDL_GPU_CULLMODE_NONE;
         rasterizer_state.front_face         = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
         rasterizer_state.enable_depth_clip  = true;
-
+        
         // pipeline
         SDL_GPUGraphicsPipelineCreateInfo pipeline_info{};
         pipeline_info.vertex_shader         = vertex_shader;
@@ -204,7 +204,6 @@ int main(int argc, char* argv[])
             std::cerr << "Error: Failed to create GPU graphics pipeline: " << SDL_GetError() << "\n";
             return 1;
         }
-
 
         // CA Create GPU Texture
         SDL_GPUTexture* cellular_automata_texture = nullptr;
@@ -239,17 +238,15 @@ int main(int argc, char* argv[])
             }
         }
         
-
-        // for crisp scaling in imgui
         SDL_GPUSampler* nearest_sampler = nullptr;
         {
             SDL_GPUSamplerCreateInfo sampler_info{};
             sampler_info.min_filter     = SDL_GPU_FILTER_NEAREST;
             sampler_info.mag_filter     = SDL_GPU_FILTER_NEAREST;
             sampler_info.mipmap_mode    = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
-            sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE; 
-            sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-            sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+            sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT; 
+            sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
+            sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
             nearest_sampler = SDL_CreateGPUSampler(window.GetGPUDevice(), &sampler_info);
             if (!nearest_sampler)
             {
@@ -257,7 +254,7 @@ int main(int argc, char* argv[])
                 return 1;   
             }
         }
-
+        
         window.StartRun();
         while (window.IsRunning())
         {
@@ -272,9 +269,33 @@ int main(int argc, char* argv[])
             imgui_manager.BeginFrame();
             imgui_manager.Build();
             imgui_manager.EndFrame();
+
+            int win_W, win_H;
+            SDL_GetWindowSizeInPixels(window.GetSDLWindow(), &win_W, &win_H);
+
+            int grid_W = auto_sim.GetWidth();
+            int grid_H = auto_sim.GetHeight();
+
+            int cell_size = std::max(1, std::min( win_W / grid_W, win_H / grid_H));
+
+            int draw_W = cell_size * grid_W;
+            int draw_H = cell_size * grid_H;
+            int off_X = (win_W - draw_W) / 2;
+            int off_Y = (win_H - draw_H) / 2;
+
+            // NDC box = (min_x, min_y, max_x, max_y)
+            auto ndc = [&](int px, int P)
+            {
+                return 2.0f * (float)px / (float)P - 1.0f;
+            };
+            float min_x = ndc(off_X,            win_W);
+            float max_x = ndc(off_X + draw_W,   win_W);
+            float min_y = ndc(off_Y,            win_H);
+            float max_y = ndc(off_Y + draw_H,   win_H);
+            PresentUBO box = { min_x, min_y, max_x, max_y };
+
             auto* draw_data = imgui_manager.GetDrawData();
             const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
-    
             
             const auto& grid_data = *auto_sim.GetGrid();
             int W = auto_sim.GetWidth();
@@ -352,6 +373,8 @@ int main(int argc, char* argv[])
                 SDL_GPUTextureSamplerBinding texture_sampling{};
                 texture_sampling.texture = cellular_automata_texture;
                 texture_sampling.sampler = nearest_sampler;
+
+                SDL_PushGPUVertexUniformData(command_buffer, 0, &box, sizeof(box));
 
                 SDL_BindGPUFragmentSamplers(render_pass, 0, &texture_sampling, 1);
 
