@@ -20,7 +20,6 @@
 #include <cstring>
 
 static std::vector<uint8_t> ReadFile(const char* path);
-struct alignas(16) PresentUBO { float min_x, min_y, max_x, max_y; };
 
 int main(int argc, char* argv[])
 {
@@ -30,8 +29,6 @@ int main(int argc, char* argv[])
 
     AutomataSimulator auto_sim(320, 180);
     //auto_sim.DebugPrint();
-
-    
 
     int id1 = auto_sim.GetIndex(math::ivec2{1,3});
     int id2 = auto_sim.GetIndex(math::ivec2{2,3});
@@ -120,17 +117,17 @@ int main(int argc, char* argv[])
 
     if (formats & SDL_GPU_SHADERFORMAT_SPIRV)
     {
-        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_SPIRV, 0, 0, 0, 1);
+        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_SPIRV);
         fragment_shader = load("shaders/build/grid_sample_rgba8.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_SPIRV, 1);
     }
     else if (formats & SDL_GPU_SHADERFORMAT_DXIL)
     {
-        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vs.dxil", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_DXIL, 0, 0, 0, 1);
+        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vs.dxil", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_DXIL);
         fragment_shader = load("shaders/build/grid_sample_rgba8.ps.dxil", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_DXIL, 1);
     }
     else if (formats & SDL_GPU_SHADERFORMAT_MSL)
     {
-        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.msl", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_MSL, 0, 0, 0, 1);
+        vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.msl", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_MSL);
         fragment_shader = load("shaders/build/grid_sample_rgba8.frag.msl", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_MSL, 1);
     }
     else {
@@ -237,20 +234,6 @@ int main(int argc, char* argv[])
                 return 1;
             }
         }
-
-        SDL_GPUTransferBuffer* ubo_upload = nullptr;
-        {
-            SDL_GPUTransferBufferCreateInfo ubo_info{};
-            ubo_info.usage  = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-            ubo_info.size   = sizeof(PresentUBO);
-            ubo_upload = SDL_CreateGPUTransferBuffer(window.GetGPUDevice(), &ubo_info);
-            if (!ubo_upload)
-            {
-                std::cerr << "Error: Failed to create GPU transfer buffer: " << SDL_GetError() << "\n";
-                return 1;
-            }
-        };
-    
         
         SDL_GPUSampler* nearest_sampler = nullptr;
         {
@@ -258,9 +241,9 @@ int main(int argc, char* argv[])
             sampler_info.min_filter     = SDL_GPU_FILTER_NEAREST;
             sampler_info.mag_filter     = SDL_GPU_FILTER_NEAREST;
             sampler_info.mipmap_mode    = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
-            sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT; 
-            sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
-            sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
+            sampler_info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE; 
+            sampler_info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+            sampler_info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
             nearest_sampler = SDL_CreateGPUSampler(window.GetGPUDevice(), &sampler_info);
             if (!nearest_sampler)
             {
@@ -283,31 +266,7 @@ int main(int argc, char* argv[])
             imgui_manager.BeginFrame();
             imgui_manager.Build();
             imgui_manager.EndFrame();
-
-            int win_W, win_H;
-            SDL_GetWindowSizeInPixels(window.GetSDLWindow(), &win_W, &win_H);
-
-            int grid_W = auto_sim.GetWidth();
-            int grid_H = auto_sim.GetHeight();
-
-            int cell_size = std::max(1, std::min( win_W / grid_W, win_H / grid_H));
-
-            int draw_W = cell_size * grid_W;
-            int draw_H = cell_size * grid_H;
-            int off_X = (win_W - draw_W) / 2;
-            int off_Y = (win_H - draw_H) / 2;
-
-            // NDC box = (min_x, min_y, max_x, max_y)
-            auto ndc = [&](int px, int P)
-            {
-                return 2.0f * (float)px / (float)P - 1.0f;
-            };
-            float min_x = ndc(off_X,            win_W);
-            float max_x = ndc(off_X + draw_W,   win_W);
-            float min_y = ndc(off_Y,            win_H);
-            float max_y = ndc(off_Y + draw_H,   win_H);
-            PresentUBO box = { min_x, min_y, max_x, max_y };
-
+    
             auto* draw_data = imgui_manager.GetDrawData();
             const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
             
@@ -329,10 +288,7 @@ int main(int argc, char* argv[])
             const size_t n = std::min(pixels.size(), grid_data.size());
             for (size_t i = 0; i < n; ++i)
             {
-                //bool on = (grid_data[i].state != 0);
-                //pixels[i] = on ? 0xFFFF00FFu : 0xFF505050u;
                 pixels[i] = MapColor(grid_data[i]);
-           
             }
             
             renderer.AcquireCommandBuffer();
@@ -348,7 +304,6 @@ int main(int argc, char* argv[])
 
             std::memcpy(dst, pixels.data(), pixels.size() * sizeof(uint32_t));
             SDL_UnmapGPUTransferBuffer(window.GetGPUDevice(), transfer_buffer);
-
 
             SDL_GPUTextureTransferInfo tti{};
             tti.transfer_buffer = transfer_buffer;
@@ -372,34 +327,6 @@ int main(int argc, char* argv[])
             SDL_UploadToGPUTexture(copy_pass, &tti, &dst_region, true);
             SDL_EndGPUCopyPass(copy_pass);
 
-            // seconde copy pass setup
-            SDL_GPUBufferCreateInfo ubo_info{};
-            ubo_info.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
-            ubo_info.size = sizeof(box);
-            SDL_GPUBuffer* ubo_gpu_buffer = SDL_CreateGPUBuffer(window.GetGPUDevice(), &ubo_info);
-
-            SDL_GPUTransferBufferCreateInfo ubo_tb_info{};
-            ubo_tb_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-            ubo_tb_info.size = sizeof(box);
-            SDL_GPUTransferBuffer* ubo_upload_tb = SDL_CreateGPUTransferBuffer(window.GetGPUDevice(), &ubo_tb_info);
-
-            void* ubo_dst = SDL_MapGPUTransferBuffer(window.GetGPUDevice(), ubo_upload_tb, true);
-            std::memcpy(ubo_dst, &box, sizeof(box));
-            SDL_UnmapGPUTransferBuffer(window.GetGPUDevice(), ubo_upload_tb);
-
-            SDL_GPUTransferBufferLocation ubo_src{};
-            ubo_src.transfer_buffer = ubo_upload_tb;
-            ubo_src.offset = 0;
-
-            SDL_GPUBufferRegion ubo_dst_region{};
-            ubo_dst_region.buffer = ubo_gpu_buffer;
-            ubo_dst_region.offset = 0;
-            ubo_dst_region.size = sizeof(box);
-
-            SDL_GPUCopyPass* ubo_copy_pass = SDL_BeginGPUCopyPass(command_buffer);
-            SDL_UploadToGPUBuffer(ubo_copy_pass, &ubo_src, &ubo_dst_region, true);
-            SDL_EndGPUCopyPass(ubo_copy_pass);
-
             imgui_manager.Prepare(renderer.GetCommandBuffer());
             renderer.AcquireSwapchainTexture();
             auto* swapchain_texture = renderer.GetSwapchainTexture();
@@ -416,10 +343,7 @@ int main(int argc, char* argv[])
                 texture_sampling.texture = cellular_automata_texture;
                 texture_sampling.sampler = nearest_sampler;
 
-                SDL_PushGPUVertexUniformData(command_buffer, 0, &box, sizeof(box));
-
                 SDL_BindGPUFragmentSamplers(render_pass, 0, &texture_sampling, 1);
-
                 SDL_DrawGPUPrimitives(render_pass, 3, 1, 0, 0);
                 
                 imgui_manager.Draw(render_pass, renderer.GetCommandBuffer());
