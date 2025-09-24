@@ -237,6 +237,20 @@ int main(int argc, char* argv[])
                 return 1;
             }
         }
+
+        SDL_GPUTransferBuffer* ubo_upload = nullptr;
+        {
+            SDL_GPUTransferBufferCreateInfo ubo_info{};
+            ubo_info.usage  = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+            ubo_info.size   = sizeof(PresentUBO);
+            ubo_upload = SDL_CreateGPUTransferBuffer(window.GetGPUDevice(), &ubo_info);
+            if (!ubo_upload)
+            {
+                std::cerr << "Error: Failed to create GPU transfer buffer: " << SDL_GetError() << "\n";
+                return 1;
+            }
+        };
+    
         
         SDL_GPUSampler* nearest_sampler = nullptr;
         {
@@ -357,6 +371,34 @@ int main(int argc, char* argv[])
             }
             SDL_UploadToGPUTexture(copy_pass, &tti, &dst_region, true);
             SDL_EndGPUCopyPass(copy_pass);
+
+            // seconde copy pass setup
+            SDL_GPUBufferCreateInfo ubo_info{};
+            ubo_info.usage = SDL_GPU_BUFFERUSAGE_VERTEX;
+            ubo_info.size = sizeof(box);
+            SDL_GPUBuffer* ubo_gpu_buffer = SDL_CreateGPUBuffer(window.GetGPUDevice(), &ubo_info);
+
+            SDL_GPUTransferBufferCreateInfo ubo_tb_info{};
+            ubo_tb_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+            ubo_tb_info.size = sizeof(box);
+            SDL_GPUTransferBuffer* ubo_upload_tb = SDL_CreateGPUTransferBuffer(window.GetGPUDevice(), &ubo_tb_info);
+
+            void* ubo_dst = SDL_MapGPUTransferBuffer(window.GetGPUDevice(), ubo_upload_tb, true);
+            std::memcpy(ubo_dst, &box, sizeof(box));
+            SDL_UnmapGPUTransferBuffer(window.GetGPUDevice(), ubo_upload_tb);
+
+            SDL_GPUTransferBufferLocation ubo_src{};
+            ubo_src.transfer_buffer = ubo_upload_tb;
+            ubo_src.offset = 0;
+
+            SDL_GPUBufferRegion ubo_dst_region{};
+            ubo_dst_region.buffer = ubo_gpu_buffer;
+            ubo_dst_region.offset = 0;
+            ubo_dst_region.size = sizeof(box);
+
+            SDL_GPUCopyPass* ubo_copy_pass = SDL_BeginGPUCopyPass(command_buffer);
+            SDL_UploadToGPUBuffer(ubo_copy_pass, &ubo_src, &ubo_dst_region, true);
+            SDL_EndGPUCopyPass(ubo_copy_pass);
 
             imgui_manager.Prepare(renderer.GetCommandBuffer());
             renderer.AcquireSwapchainTexture();
