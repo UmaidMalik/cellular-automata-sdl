@@ -28,6 +28,7 @@ int main(int argc, char* argv[])
     //std::uniform_int_distribution<> dist(0, 255);
 
     AutomataSimulator auto_sim(320, 180);
+    //AutomataSimulator auto_sim(1280, 720);
     //auto_sim.DebugPrint();
 
     int id1 = auto_sim.GetIndex(math::ivec2{1,3});
@@ -114,21 +115,23 @@ int main(int argc, char* argv[])
 
     SDL_GPUShader* vertex_shader = nullptr;
     SDL_GPUShader* fragment_shader = nullptr;
+    SDL_GPUShader* update_fs = nullptr;
 
     if (formats & SDL_GPU_SHADERFORMAT_SPIRV)
     {
         vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_SPIRV);
-        fragment_shader = load("shaders/build/grid_sample_rgba8.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_SPIRV, 1);
+        fragment_shader = load("shaders/build/grid_sample_rgba8.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_SPIRV, 1, 0, 0, 1);
+        update_fs = load("shaders/build/update_r1.frag.spv", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_SPIRV, 1, 0, 0, 1);
     }
     else if (formats & SDL_GPU_SHADERFORMAT_DXIL)
     {
         vertex_shader = load("shaders/build/grid_fullscreen_triangle.vs.dxil", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_DXIL);
-        fragment_shader = load("shaders/build/grid_sample_rgba8.ps.dxil", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_DXIL, 1);
+        fragment_shader = load("shaders/build/grid_sample_rgba8.ps.dxil", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_DXIL, 1, 0, 0, 1);
     }
     else if (formats & SDL_GPU_SHADERFORMAT_MSL)
     {
         vertex_shader = load("shaders/build/grid_fullscreen_triangle.vert.msl", SDL_GPU_SHADERSTAGE_VERTEX, SDL_GPU_SHADERFORMAT_MSL);
-        fragment_shader = load("shaders/build/grid_sample_rgba8.frag.msl", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_MSL, 1);
+        fragment_shader = load("shaders/build/grid_sample_rgba8.frag.msl", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_MSL, 1, 0, 0, 1);
     }
     else {
         std::cerr << "No supported precompiled shader format found.\n";
@@ -136,7 +139,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    if (!vertex_shader || !fragment_shader)
+    if (!vertex_shader || !fragment_shader || !update_fs)
     {
         std::cerr << "Vertex or fragment shader not loaded\n";
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Vertex or fragment shader not loaded :(", nullptr);
@@ -157,7 +160,24 @@ int main(int argc, char* argv[])
 
         SDL_GPUVertexInputState vertex_input_state{};
         SDL_GPUTextureFormat swapchain_format = renderer.GetSwapchainFormat();
-        SDL_GPUTextureFormat state_format;
+        
+        SDL_GPUTextureFormat state_format = SDL_GPU_TEXTUREFORMAT_R8_UNORM;
+        SDL_GPUTextureCreateInfo tci{};
+        tci.type = SDL_GPU_TEXTURETYPE_2D;
+        tci.format = state_format;
+        tci.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+        tci.width = auto_sim.GetWidth();
+        tci.height = auto_sim.GetHeight();
+        tci.layer_count_or_depth = 1;
+        tci.num_levels = 1;
+
+        SDL_GPUTexture* state_texture[2] =
+        {
+            SDL_CreateGPUTexture(window.GetGPUDevice(), &tci),
+            SDL_CreateGPUTexture(window.GetGPUDevice(), &tci),
+        };
+        SDL_GPUTexture* current = state_texture[0];
+        SDL_GPUTexture* next = state_texture[1];
 
         SDL_GPUColorTargetBlendState blend_state{};
         blend_state.enable_blend = false;
@@ -198,6 +218,28 @@ int main(int argc, char* argv[])
    
         SDL_GPUGraphicsPipeline* grid_pipeline = SDL_CreateGPUGraphicsPipeline(window.GetGPUDevice(), &pipeline_info);
         if (!grid_pipeline)
+        {
+            std::cerr << "Error: Failed to create GPU graphics pipeline: " << SDL_GetError() << "\n";
+            return 1;
+        }
+
+        // for state_frame
+        SDL_GPUColorTargetDescription upd_ct{};
+        upd_ct.format = state_format;
+        SDL_GPUGraphicsPipelineTargetInfo upd_tgt{};
+        upd_tgt.color_target_descriptions = &upd_ct;
+        upd_tgt.num_color_targets = 1;
+
+        SDL_GPUGraphicsPipelineCreateInfo upd_pso{};
+        upd_pso.vertex_shader = vertex_shader;
+        upd_pso.fragment_shader = update_fs;
+        upd_pso.vertex_input_state = SDL_GPUVertexInputState{};
+        upd_pso.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+        upd_pso.rasterizer_state = SDL_GPURasterizerState{};
+        upd_pso.target_info = upd_tgt;
+
+        SDL_GPUGraphicsPipeline* update_pipeline = SDL_CreateGPUGraphicsPipeline(window.GetGPUDevice(), &upd_pso);
+        if (!update_pipeline)
         {
             std::cerr << "Error: Failed to create GPU graphics pipeline: " << SDL_GetError() << "\n";
             return 1;
@@ -252,7 +294,49 @@ int main(int argc, char* argv[])
                 return 1;   
             }
         }
-        
+
+        int W = auto_sim.GetWidth();
+        int H = auto_sim.GetHeight();
+
+        std::vector<uint8_t> seed(W * H);
+        auto& grid_data = *auto_sim.GetGrid();
+        size_t n = std::min(seed.size(), grid_data.size());
+        for (size_t i = 0; i < n; ++i)
+        {
+            seed[i] = (grid_data[i].state != 0) ? 255 : 0;
+        }
+
+        SDL_GPUTransferBufferCreateInfo tbi_r8{};
+        tbi_r8.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+        tbi_r8.size = W * H;
+        SDL_GPUTransferBuffer* seed_tb = SDL_CreateGPUTransferBuffer(window.GetGPUDevice(), &tbi_r8);
+
+        void* dst_r8 = SDL_MapGPUTransferBuffer(window.GetGPUDevice(), seed_tb, true);
+        std::memcpy(dst_r8, seed.data(), seed.size());
+        SDL_UnmapGPUTransferBuffer(window.GetGPUDevice(), seed_tb);
+
+        SDL_GPUTextureTransferInfo tti_r8{};
+        tti_r8.transfer_buffer = seed_tb;
+        tti_r8.offset = 0;
+        tti_r8.pixels_per_row = W;
+        tti_r8.rows_per_layer = H;
+
+        SDL_GPUTextureRegion region_r8{};
+        region_r8.texture = current;
+        region_r8.mip_level = 0;
+        region_r8.layer = 0;
+        region_r8.x = 0; region_r8.y = 0; region_r8.z = 0;
+        region_r8.w = W; region_r8.h = H; region_r8.d = 1;
+
+        renderer.AcquireCommandBuffer();
+        SDL_GPUCommandBuffer* seed_cmd = renderer.GetCommandBuffer();
+        SDL_GPUCopyPass* seed_cp = SDL_BeginGPUCopyPass(seed_cmd);
+        SDL_UploadToGPUTexture(seed_cp, &tti_r8, &region_r8, true);
+        SDL_EndGPUCopyPass(seed_cp);
+        renderer.SubmitCommandBuffer();
+        SDL_ReleaseGPUTransferBuffer(window.GetGPUDevice(), seed_tb);
+
+        bool ping = false;
         window.StartRun();
         while (window.IsRunning())
         {
@@ -271,6 +355,7 @@ int main(int argc, char* argv[])
             auto* draw_data = imgui_manager.GetDrawData();
             const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
             
+            /* CPU bounded
             const auto& grid_data = *auto_sim.GetGrid();
             int W = auto_sim.GetWidth();
             int H = auto_sim.GetHeight();
@@ -291,11 +376,15 @@ int main(int argc, char* argv[])
             {
                 pixels[i] = MapColor(grid_data[i]);
             }
+            */
+            
+           
             
             renderer.AcquireCommandBuffer();
             SDL_GPUCommandBuffer* command_buffer = renderer.GetCommandBuffer();
 
             // upload pixels to ca texture in a COPY PASS
+            /* CPU bounded
             void* dst = SDL_MapGPUTransferBuffer(window.GetGPUDevice(), transfer_buffer, true);
             if (!dst)
             {
@@ -305,7 +394,35 @@ int main(int argc, char* argv[])
 
             std::memcpy(dst, pixels.data(), pixels.size() * sizeof(uint32_t));
             SDL_UnmapGPUTransferBuffer(window.GetGPUDevice(), transfer_buffer);
+            */
+   
+            // Update pass: render into state_texture[next]
+            SDL_GPUColorTargetInfo ct{};
+            ct.texture = next;
+            ct.mip_level = 0;
+            ct.layer_or_depth_plane = 0;
+            ct.clear_color = {0,0,0,1};
+            ct.load_op = SDL_GPU_LOADOP_DONT_CARE;
+            ct.store_op = SDL_GPU_STOREOP_STORE;
 
+            SDL_GPURenderPass* up_pass = SDL_BeginGPURenderPass(command_buffer, &ct, 1, nullptr);
+            SDL_BindGPUGraphicsPipeline(up_pass, update_pipeline);
+
+            
+            SDL_GPUTextureSamplerBinding up_ts
+            {
+                current,
+                nearest_sampler
+            };
+            SDL_BindGPUFragmentSamplers(up_pass, 0, &up_ts, 1);
+
+            struct alignas(16) ParamsUBO { int32_t w,h, wrap, max_states; };
+            ParamsUBO params{ W, H, 1, auto_sim.GetMaxStates() };
+            SDL_PushGPUFragmentUniformData(command_buffer, 0, &params, sizeof(params));
+
+            SDL_DrawGPUPrimitives(up_pass, 3, 1, 0, 0);
+            SDL_EndGPURenderPass(up_pass);
+            /* CPU Bound
             SDL_GPUTextureTransferInfo tti{};
             tti.transfer_buffer = transfer_buffer;
             tti.offset = 0;
@@ -327,6 +444,7 @@ int main(int argc, char* argv[])
             }
             SDL_UploadToGPUTexture(copy_pass, &tti, &dst_region, true);
             SDL_EndGPUCopyPass(copy_pass);
+            */
 
             imgui_manager.Prepare(renderer.GetCommandBuffer());
             renderer.AcquireSwapchainTexture();
@@ -339,12 +457,15 @@ int main(int argc, char* argv[])
                 
                 // bind pipeline, verter buffer, and the ca texture + sampler at FS slot 0
                 SDL_BindGPUGraphicsPipeline(render_pass, grid_pipeline);
+                SDL_GPUTextureSamplerBinding pts{ next, nearest_sampler};
+                SDL_BindGPUFragmentSamplers(render_pass, 0, &pts, 1);
 
+                /* CPU Bound
                 SDL_GPUTextureSamplerBinding texture_sampling{};
                 texture_sampling.texture = cellular_automata_texture;
                 texture_sampling.sampler = nearest_sampler;
-
                 SDL_BindGPUFragmentSamplers(render_pass, 0, &texture_sampling, 1);
+                */
                 SDL_DrawGPUPrimitives(render_pass, 3, 1, 0, 0);
                 
                 imgui_manager.Draw(render_pass, renderer.GetCommandBuffer());
@@ -352,6 +473,7 @@ int main(int argc, char* argv[])
                 renderer.EndRenderPass();
             }
             renderer.SubmitCommandBuffer();
+            std::swap(current, next);
         }
         SDL_ReleaseGPUTexture(window.GetGPUDevice(), cellular_automata_texture);
         SDL_ReleaseGPUSampler(window.GetGPUDevice(), nearest_sampler);

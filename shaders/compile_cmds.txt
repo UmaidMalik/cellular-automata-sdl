@@ -8,3 +8,5 @@ glslc grid_fullscreen_triangle.vert -O \
 # Fragment
 glslc grid_sample_rgba8.frag -O \
   -o build/grid_sample_rgba8.frag.spv
+
+glslc update_r1.frag -O -o build/update_r1.frag.spv
