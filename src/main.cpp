@@ -157,6 +157,7 @@ int main(int argc, char* argv[])
 
         SDL_GPUVertexInputState vertex_input_state{};
         SDL_GPUTextureFormat swapchain_format = renderer.GetSwapchainFormat();
+        SDL_GPUTextureFormat state_format;
 
         SDL_GPUColorTargetBlendState blend_state{};
         blend_state.enable_blend = false;
