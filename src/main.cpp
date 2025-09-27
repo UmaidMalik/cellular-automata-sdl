@@ -27,8 +27,9 @@ int main(int argc, char* argv[])
     //std::mt19937 gen(rd());
     //std::uniform_int_distribution<> dist(0, 255);
 
-    AutomataSimulator auto_sim(320, 180);
-    //AutomataSimulator auto_sim(1280, 720);
+    //AutomataSimulator auto_sim(3200, 1800);
+    AutomataSimulator auto_sim(1280, 720);
+    //AutomataSimulator auto_sim(12800, 7200);
     //auto_sim.DebugPrint();
 
     int id1 = auto_sim.GetIndex(math::ivec2{1,3});
@@ -346,7 +347,7 @@ int main(int argc, char* argv[])
                 SDL_Delay(10);
                 continue;
             }
-            auto_sim.Step();
+            //auto_sim.Step();
 
             imgui_manager.BeginFrame();
             imgui_manager.Build();
@@ -416,8 +417,8 @@ int main(int argc, char* argv[])
             };
             SDL_BindGPUFragmentSamplers(up_pass, 0, &up_ts, 1);
 
-            struct alignas(16) ParamsUBO { int32_t w,h, wrap, max_states; };
-            ParamsUBO params{ W, H, 1, auto_sim.GetMaxStates() };
+            struct alignas(32) ParamsUBO { int32_t w, h, r, wrap, max_states; };
+            ParamsUBO params{ W, H, auto_sim.GetRange(), 1, 2 };
             SDL_PushGPUFragmentUniformData(command_buffer, 0, &params, sizeof(params));
 
             SDL_DrawGPUPrimitives(up_pass, 3, 1, 0, 0);
