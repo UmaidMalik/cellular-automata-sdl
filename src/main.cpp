@@ -24,15 +24,12 @@ static std::vector<uint8_t> ReadFile(const char* path);
 
 struct alignas(16) AutomataParamsUBO
 { 
-    int32_t w, h;
-    int32_t r;
-    int32_t wrap;
-    int32_t max_states; 
-    uint32_t born_lo, born_hi;
-    uint32_t surv_lo, surv_hi;
+    int32_t w, h, range, wrap; // lane 0
+    int32_t max_states, _pad0, _pad1, pad2; // lane 1 
+    uint32_t born_lo, born_hi, surv_lo, surv_hi; // lane 2
 };
 
-auto pack_mask_64 = [](const uset& rule_set) -> uint64_t
+auto PackMask64 = [](const uset& rule_set) -> uint64_t
 {
     uint64_t mask = 0;
     for (int rule : rule_set)
@@ -47,33 +44,35 @@ auto pack_mask_64 = [](const uset& rule_set) -> uint64_t
 
 int main(int argc, char* argv[])
 {
-    //std::random_device rd;
-    //std::mt19937 gen(rd());
-    //std::uniform_int_distribution<> dist(0, 255);
-
     //AutomataSimulator auto_sim(3200, 1800);
     AutomataSimulator auto_sim(1280, 720);
+    //AutomataSimulator auto_sim(320, 180);
+    //AutomataSimulator auto_sim(128, 72);
     //AutomataSimulator auto_sim(12800, 7200);
     //auto_sim.DebugPrint();
-    std::string str1 = "2-6";
-    std::string str2 = "2-4";
+    std::string str1 = "2-3";
+    std::string str2 = "2";
+    auto_sim.SetWrap();
     auto_sim.SetDecay(0.0f);
     auto_sim.SetRange(1);
-    auto_sim.SetMaxStates(2);
+    auto_sim.SetMaxStates(8);
     auto_sim.ParseRule(str1, true);
     auto_sim.ParseRule(str2, false);
-    uint64_t born64     = pack_mask_64(auto_sim.GetBornRule());
-    uint64_t survive64  = pack_mask_64(auto_sim.GetSurviveRule());
-    AutomataParamsUBO params
-    {
-        auto_sim.GetWidth(), auto_sim.GetHeight(),
-        auto_sim.GetRange(),
-        auto_sim.GetWrap(),
-        auto_sim.GetMaxStates(),
-        (uint32_t)(born64 & 0xFFFFFFFFu),   (uint32_t)(born64 >> 32),
-        (uint32_t)(survive64 & 0xFFFFFFFFu),(uint32_t)(survive64 >> 32),
-    };
 
+    uint64_t born64     = PackMask64(auto_sim.GetBornRule());
+    uint64_t survive64  = PackMask64(auto_sim.GetSurviveRule());
+
+    AutomataParamsUBO params{};
+    params.w            = auto_sim.GetWidth();
+    params.h            = auto_sim.GetHeight();
+    params.range        = auto_sim.GetRange();
+    params.wrap         = auto_sim.GetWrap();
+    params.max_states   = auto_sim.GetMaxStates();
+    params.born_lo      = (uint32_t)(born64 & 0xFFFFFFFFu);
+    params.born_hi      = (uint32_t)(born64 >> 32);
+    params.surv_lo      = (uint32_t)(survive64 & 0xFFFFFFFFu);
+    params.surv_hi      = (uint32_t)(survive64 >> 32);
+    
     int id1 = auto_sim.GetIndex(math::ivec2{1,3});
     int id2 = auto_sim.GetIndex(math::ivec2{2,3});
     int id3 = auto_sim.GetIndex(math::ivec2{3,3});
@@ -85,6 +84,24 @@ int main(int argc, char* argv[])
     grid[id1] = cell1;
     grid[id2] = cell2;
     grid[id3] = cell3;
+
+    int pts[9];
+    ivec2 poff = {12, 24};
+    pts[0] = auto_sim.GetIndex(math::ivec2{0 + poff.x, 0 + poff.y});
+    pts[1] = auto_sim.GetIndex(math::ivec2{2 + poff.x, 0 + poff.y});
+    pts[2] = auto_sim.GetIndex(math::ivec2{3 + poff.x, 1 + poff.y});
+    pts[3] = auto_sim.GetIndex(math::ivec2{3 + poff.x, 2 + poff.y});
+    pts[4] = auto_sim.GetIndex(math::ivec2{3 + poff.x, 3 + poff.y});
+    pts[5] = auto_sim.GetIndex(math::ivec2{0 + poff.x, 3 + poff.y});
+    pts[6] = auto_sim.GetIndex(math::ivec2{1 + poff.x, 4 + poff.y});
+    pts[7] = auto_sim.GetIndex(math::ivec2{2 + poff.x, 4 + poff.y});
+    pts[8] = auto_sim.GetIndex(math::ivec2{3 + poff.x, 4 + poff.y});
+    Cell cell(1, HSVColor{ 0.25f, 0.4f, 1.0f });
+    for (int i = 0; i < 9; i++)
+    {
+        grid[pts[i]] = cell;
+    }
+    
     //auto_sim.Debug_SetConwaysGameOfLifeRule();
     //auto_sim.DebugPrint();
     auto_sim.Step();
@@ -374,6 +391,7 @@ int main(int argc, char* argv[])
         window.StartRun();
         while (window.IsRunning())
         {
+            //SDL_Delay(100);
             event_handler.ProcessEvents(); 
             if (SDL_GetWindowFlags(window.GetSDLWindow()) & SDL_WINDOW_MINIMIZED)
             {

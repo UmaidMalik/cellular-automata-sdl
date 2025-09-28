@@ -7,4 +7,5 @@ layout (set = 2, binding = 0) uniform sampler2D uTex;
 void main()
 {
     outColor = texture(uTex, vUV);
+    //outColor = vec4(1, 0, 1, 1);
 }
