@@ -34,6 +34,7 @@ class AutomataSimulator
         float m_saturation = 1.0f;
         float m_value = 1.0f;
         float m_decay_rate = 0.999f;
+        int m_wrap = 1;
     public:
         AutomataSimulator(int w, int h);
         ~AutomataSimulator();
@@ -48,14 +49,18 @@ class AutomataSimulator
         void SetMaxStates(int max_states);
         void SetDecay(float decay_rate);
 
-        uset GetBornRule();
-        uset GetSurviveRule();
+        const uset& GetBornRule();
+        const uset& GetSurviveRule();
         int GetRange();
         int GetMaxStates();
         std::vector<Cell>* GetGrid();
         int GetWidth();
         int GetHeight();
         float GetDecay();
+        int GetWrap();
+
+        void SetWrap();
+        void UnsetWrap();
 
         void Step();
         
@@ -134,9 +139,6 @@ bool AutomataSimulator::ParseRule(std::string& rule_string, bool is_born_rule)
             }
         }
     }
-
-
-
     return true;
 }
 
@@ -173,12 +175,12 @@ void AutomataSimulator::SetDecay(float decay_rate)
     m_decay_rate = decay_rate;
 }
 
-uset AutomataSimulator::GetBornRule()
+const uset& AutomataSimulator::GetBornRule()
 {
     return m_born;
 }
 
-uset AutomataSimulator::GetSurviveRule()
+const uset& AutomataSimulator::GetSurviveRule()
 {
     return m_survive;
 }
@@ -333,4 +335,19 @@ int AutomataSimulator::GetWidth()
 int AutomataSimulator::GetHeight()
 {
     return m_height;
+}
+
+int AutomataSimulator::GetWrap()
+{
+    return m_wrap;
+}
+
+void AutomataSimulator::SetWrap()
+{
+    m_wrap = 1;
+}
+
+void AutomataSimulator::UnsetWrap()
+{
+    m_wrap = 0;
 }

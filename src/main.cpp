@@ -12,6 +12,7 @@
 #include "renderer.hpp"
 #include "automata_simulator.hpp"
 #include "math.hpp"
+#include "shader_loader.hpp"
 #include <string>
 #include <vector>
 #include <random>
@@ -20,6 +21,29 @@
 #include <cstring>
 
 static std::vector<uint8_t> ReadFile(const char* path);
+
+struct alignas(16) AutomataParamsUBO
+{ 
+    int32_t w, h;
+    int32_t r;
+    int32_t wrap;
+    int32_t max_states; 
+    uint32_t born_lo, born_hi;
+    uint32_t surv_lo, surv_hi;
+};
+
+auto pack_mask_64 = [](const uset& rule_set) -> uint64_t
+{
+    uint64_t mask = 0;
+    for (int rule : rule_set)
+    {
+        if (rule >= 0 and rule < 64)
+        {
+            mask |= (1ull << rule);
+        }
+    }
+    return mask;
+};
 
 int main(int argc, char* argv[])
 {
@@ -31,6 +55,24 @@ int main(int argc, char* argv[])
     AutomataSimulator auto_sim(1280, 720);
     //AutomataSimulator auto_sim(12800, 7200);
     //auto_sim.DebugPrint();
+    std::string str1 = "2-6";
+    std::string str2 = "2-4";
+    auto_sim.SetDecay(0.0f);
+    auto_sim.SetRange(1);
+    auto_sim.SetMaxStates(2);
+    auto_sim.ParseRule(str1, true);
+    auto_sim.ParseRule(str2, false);
+    uint64_t born64     = pack_mask_64(auto_sim.GetBornRule());
+    uint64_t survive64  = pack_mask_64(auto_sim.GetSurviveRule());
+    AutomataParamsUBO params
+    {
+        auto_sim.GetWidth(), auto_sim.GetHeight(),
+        auto_sim.GetRange(),
+        auto_sit.GetWrap(),
+        auto_sim.GetMaxStates(),
+        (uint32_t)(born64 & 0xFFFFFFFFu),   (uint32_t)(born64 >> 32),
+        (uint32_t)(survive64 & 0xFFFFFFFFu),(uint32_t)(survive64 >> 32),
+    };
 
     int id1 = auto_sim.GetIndex(math::ivec2{1,3});
     int id2 = auto_sim.GetIndex(math::ivec2{2,3});
@@ -44,13 +86,6 @@ int main(int argc, char* argv[])
     grid[id2] = cell2;
     grid[id3] = cell3;
     //auto_sim.Debug_SetConwaysGameOfLifeRule();
-    std::string str1 = "2-5";
-    std::string str2 = "3-4";
-    auto_sim.SetDecay(0.f);
-    auto_sim.SetRange(1);
-    auto_sim.SetMaxStates(2);
-    auto_sim.ParseRule(str1, true);
-    auto_sim.ParseRule(str2, false);
     //auto_sim.DebugPrint();
     auto_sim.Step();
     //auto_sim.DebugPrint();
@@ -60,8 +95,6 @@ int main(int argc, char* argv[])
     SDL_SetLogPriorities(SDL_LOG_PRIORITY_VERBOSE);
     SDL_SetHint(SDL_HINT_DEBUG_LOGGING, "1");
      
-
-    int status = 0;
     Window window(1280, 720, "Cellular Automata");
     if (!window.SetupWindow())
     {
@@ -417,8 +450,8 @@ int main(int argc, char* argv[])
             };
             SDL_BindGPUFragmentSamplers(up_pass, 0, &up_ts, 1);
 
-            struct alignas(32) ParamsUBO { int32_t w, h, r, wrap, max_states; };
-            ParamsUBO params{ W, H, auto_sim.GetRange(), 1, 2 };
+        
+            
             SDL_PushGPUFragmentUniformData(command_buffer, 0, &params, sizeof(params));
 
             SDL_DrawGPUPrimitives(up_pass, 3, 1, 0, 0);

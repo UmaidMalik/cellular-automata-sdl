@@ -5,21 +5,30 @@
 #include <SDL3/SDL_gpu.h>
 
 #include <string>
+#include <array>
 #include <vector>
 
 class ShaderLoader {
     private:
-        std::unordered_map<const char*, SDL_GPUShader*> m_shader_map;
+        std::unordered_map<std::string, SDL_GPUShader*> m_shader_map;
+        std::array<unsigned int, 6> m_shader_formats;
     public:
         ShaderLoader();
+        void Load();
+        void CreateShader();
+        SDL_GPUShader* GetShader(std::string shader_name);
     private:
         std::vector<uint8_t> ReadFile(const char* path);
 
 };
 
 ShaderLoader::ShaderLoader()
+    : m_shader_formats
+    {
+        SDL_GPU_SHADERFORMAT_INVALID
+    }
 {
-    m_shader_map.
+    
 }
 
 std::vector<uint8_t> ShaderLoader::ReadFile(const char* path)
