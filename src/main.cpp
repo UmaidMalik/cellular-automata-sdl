@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
     {
         auto_sim.GetWidth(), auto_sim.GetHeight(),
         auto_sim.GetRange(),
-        auto_sit.GetWrap(),
+        auto_sim.GetWrap(),
         auto_sim.GetMaxStates(),
         (uint32_t)(born64 & 0xFFFFFFFFu),   (uint32_t)(born64 >> 32),
         (uint32_t)(survive64 & 0xFFFFFFFFu),(uint32_t)(survive64 >> 32),
