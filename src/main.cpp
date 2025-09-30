@@ -45,17 +45,19 @@ auto PackMask64 = [](const uset& rule_set) -> uint64_t
 int main(int argc, char* argv[])
 {
     //AutomataSimulator auto_sim(3200, 1800);
-    AutomataSimulator auto_sim(1280, 720);
+    //AutomataSimulator auto_sim(1280, 720);
     //AutomataSimulator auto_sim(320, 180);
     //AutomataSimulator auto_sim(128, 72);
+    //AutomataSimulator auto_sim(24, 80);
+    AutomataSimulator auto_sim(84, 48);
     //AutomataSimulator auto_sim(12800, 7200);
     //auto_sim.DebugPrint();
-    std::string str1 = "2-3";
-    std::string str2 = "2";
+    std::string str1 = "3";
+    std::string str2 = "3-2";
     auto_sim.SetWrap();
     auto_sim.SetDecay(0.0f);
     auto_sim.SetRange(1);
-    auto_sim.SetMaxStates(8);
+    auto_sim.SetMaxStates(2);
     auto_sim.ParseRule(str1, true);
     auto_sim.ParseRule(str2, false);
 
