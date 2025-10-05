@@ -18,6 +18,7 @@
 #include <random>
 #include <regex>
 #include "utility.hpp"
+#include "logger.hpp"
 #include <cstring>
 
 static std::vector<uint8_t> ReadFile(const char* path);
@@ -44,6 +45,10 @@ auto PackMask64 = [](const uset& rule_set) -> uint64_t
 
 int main(int argc, char* argv[])
 {
+    Logger log;
+    log.Print("OOPS");
+    log.Info("Hello");
+
     //AutomataSimulator auto_sim(3200, 1800);
     //AutomataSimulator auto_sim(1280, 720);
     //AutomataSimulator auto_sim(320, 180);
