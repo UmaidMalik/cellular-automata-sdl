@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
     SDL_SetLogPriorities(SDL_LOG_PRIORITY_VERBOSE);
     SDL_SetHint(SDL_HINT_DEBUG_LOGGING, "1");
      
-    Window window(1280, 720, "Cellular Automata");
+    Window window(854, 480, "Cellular Automata");
     if (!window.SetupWindow())
     {
         std::cerr << "Error: window setup failed\n";
