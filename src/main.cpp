@@ -21,6 +21,7 @@
 #include "logger.hpp"
 #include <cstring>
 
+
 static std::vector<uint8_t> ReadFile(const char* path);
 
 struct alignas(16) AutomataParamsUBO
@@ -44,11 +45,8 @@ auto PackMask64 = [](const uset& rule_set) -> uint64_t
 };
 
 int main(int argc, char* argv[])
-{
-    Logger log;
-    log.Print("OOPS");
-    log.Info("Hello");
-
+{   
+    
     //AutomataSimulator auto_sim(3200, 1800);
     //AutomataSimulator auto_sim(1280, 720);
     //AutomataSimulator auto_sim(320, 180);
@@ -122,7 +120,7 @@ int main(int argc, char* argv[])
     Window window(854, 480, "Cellular Automata");
     if (!window.SetupWindow())
     {
-        std::cerr << "Error: window setup failed\n";
+        logger::Error("Error: window setup failed");
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Ran into an error during window setup :(", nullptr);
         return 1;
     }
@@ -142,7 +140,7 @@ int main(int argc, char* argv[])
         auto bytes = ReadFile(path);
         if (bytes.size() < 4)
         {
-            std::cerr << "Empty shader: " << path << "\n";
+            logger::Error("Empty shader: {}", path);
             return nullptr;
         }
         if (format == SDL_GPU_SHADERFORMAT_SPIRV)
@@ -150,7 +148,7 @@ int main(int argc, char* argv[])
             uint32_t magic = *reinterpret_cast<const uint32_t*>(bytes.data());
             if (magic != 0x07230203)
             {
-                std::cerr << "Not SPIR-V: " << path << "\n";
+                logger::Error("Not SPIR-V: ", path);
                 return nullptr;
             }
         }
@@ -167,7 +165,7 @@ int main(int argc, char* argv[])
         info.num_uniform_buffers = num_uniform_buffers;
 
         SDL_GPUShader* shader = SDL_CreateGPUShader(window.GetGPUDevice(), &info);
-        if (!shader) std::cerr << "Error: Failed to create GPU shader: " << path << ": " << SDL_GetError(); 
+        if (!shader) logger::Error("Error: Failed to create GPU shader: {}: {}", path, SDL_GetError()); 
         return shader;
     };
 
@@ -192,14 +190,14 @@ int main(int argc, char* argv[])
         fragment_shader = load("shaders/build/grid_sample_rgba8.frag.msl", SDL_GPU_SHADERSTAGE_FRAGMENT, SDL_GPU_SHADERFORMAT_MSL, 1, 0, 0, 1);
     }
     else {
-        std::cerr << "No supported precompiled shader format found.\n";
+        logger::Error("No supported precompiled shader format found.");
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "No supported precompiled shader format found :(", nullptr);
         return 1;
     }
 
     if (!vertex_shader || !fragment_shader || !update_fs)
     {
-        std::cerr << "Vertex or fragment shader not loaded\n";
+        logger::Error("Vertex or fragment shader not loaded");
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Vertex or fragment shader not loaded :(", nullptr);
         return 1;
     }
@@ -277,7 +275,7 @@ int main(int argc, char* argv[])
         SDL_GPUGraphicsPipeline* grid_pipeline = SDL_CreateGPUGraphicsPipeline(window.GetGPUDevice(), &pipeline_info);
         if (!grid_pipeline)
         {
-            std::cerr << "Error: Failed to create GPU graphics pipeline: " << SDL_GetError() << "\n";
+            logger::Error("Error: Failed to create GPU graphics pipeline: {}", SDL_GetError);
             return 1;
         }
 
@@ -299,7 +297,7 @@ int main(int argc, char* argv[])
         SDL_GPUGraphicsPipeline* update_pipeline = SDL_CreateGPUGraphicsPipeline(window.GetGPUDevice(), &upd_pso);
         if (!update_pipeline)
         {
-            std::cerr << "Error: Failed to create GPU graphics pipeline: " << SDL_GetError() << "\n";
+            logger::Error("Error: Failed to create GPU graphics pipeline: {}", SDL_GetError());
             return 1;
         }
 
@@ -317,7 +315,7 @@ int main(int argc, char* argv[])
             cellular_automata_texture           = SDL_CreateGPUTexture(window.GetGPUDevice(), &texture_info);
             if (!cellular_automata_texture)
             {
-                std::cerr << "Error: Failed to create GPU texture: " << SDL_GetError() << "\n";
+                logger::Error("Error: Failed to create GPU texture: {}", SDL_GetError());
                 return 1;   
             }
         }
@@ -331,7 +329,7 @@ int main(int argc, char* argv[])
             transfer_buffer = SDL_CreateGPUTransferBuffer(window.GetGPUDevice(), &upload); 
             if (!transfer_buffer)
             {
-                std::cerr << "Error: Failed to create GPU transfer buffer: " << SDL_GetError() << "\n";
+                logger::Error("Error: Failed to create GPU transfer buffer: {}", SDL_GetError());
                 return 1;
             }
         }
@@ -348,7 +346,7 @@ int main(int argc, char* argv[])
             nearest_sampler = SDL_CreateGPUSampler(window.GetGPUDevice(), &sampler_info);
             if (!nearest_sampler)
             {
-                std::cerr << "Error: Failed to create GPU sampler: " << SDL_GetError() << "\n";
+                logger::Error("Error: Failed to create GPU sampler: {}", SDL_GetError());
                 return 1;   
             }
         }
@@ -447,7 +445,7 @@ int main(int argc, char* argv[])
             void* dst = SDL_MapGPUTransferBuffer(window.GetGPUDevice(), transfer_buffer, true);
             if (!dst)
             {
-                std::cout << "Error: Map GPU transfer buffer failed: " << SDL_GetError() << "\n"; 
+                log::Error("Error: Map GPU transfer buffer failed: {}", SDL_GetError()); 
                 return 1;
             }
 
@@ -498,7 +496,7 @@ int main(int argc, char* argv[])
             SDL_GPUCopyPass* copy_pass = SDL_BeginGPUCopyPass(command_buffer);
             if (!copy_pass)
             {
-                std::cerr << "Error: Failed to begin Copy Pass: " << SDL_GetError() << "\n";
+                log::Error("Error: Failed to begin Copy Pass: {}", SDL_GetError());
                 return 1;
             }
             SDL_UploadToGPUTexture(copy_pass, &tti, &dst_region, true);
@@ -549,7 +547,7 @@ static std::vector<uint8_t> ReadFile(const char* path)
     std::FILE* file = std::fopen(path, "rb");
     if (!file)
     {
-        std::cerr << "Warning: File not found: " << path << "\n";
+        logger::Error("Warning: File not found: {}", path);
         return {};
     }
 
