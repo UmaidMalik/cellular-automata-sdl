@@ -22,6 +22,8 @@ struct SimulationControls
 
     static constexpr int MAX_AGING_STAGES = 255;
     static constexpr int MAX_BRUSH_SIZE = 500;
+    static constexpr int MIN_BRUSH_SATURATION = 25;
+    static constexpr int MAX_BRUSH_SATURATION = 100;
 
     int neighbor_radius = 1;
     bool aging_enabled = false;
@@ -34,7 +36,7 @@ struct SimulationControls
     bool wrap_edges = true;
     bool random_brush_hue = true;
     float brush_hue = 0.5f;
-    int color_saturation = 100;
+    int brush_saturation = MAX_BRUSH_SATURATION;
     float color_decay = 0.999f;
     NeighborRule birth_mask{1u << 3};
     NeighborRule survival_mask{(1u << 2) | (1u << 3)};

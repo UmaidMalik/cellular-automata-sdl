@@ -27,6 +27,9 @@ static_assert(sizeof(AutomataParams) == 64);
 using BrushTexel = std::array<uint16_t, 4>;
 // Align both row pitch and source offset for SDL GPU backends such as D3D12.
 constexpr Uint32 BRUSH_ROW_ALIGNMENT = 512;
+// Match update_r1.frag: alpha stores a nine-bit state and seven-bit saturation.
+constexpr uint16_t LIVE_CELL_STATE = 256;
+constexpr int SATURATION_BITS = 7;
 
 bool BrushCellIsAlive(Uint32 seed, int x, int y)
 {
@@ -148,7 +151,7 @@ void AutomataGpu::Clear(SDL_GPUCommandBuffer* commands)
 }
 
 bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> stroke,
-                        float hue, int size, Uint32 seed)
+                        float hue, int saturation, int size, Uint32 seed)
 {
     if (stroke.empty())
         return true;
@@ -234,11 +237,13 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
 
     // Store hue as a direction so the update pass can average colors across the hue seam.
     const float angle = 2.0f * std::numbers::pi_v<float> * hue;
+    const auto saturation_percent = static_cast<uint16_t>(std::clamp(saturation,
+        SimulationControls::MIN_BRUSH_SATURATION, SimulationControls::MAX_BRUSH_SATURATION));
     const BrushTexel alive{
         static_cast<uint16_t>(std::lround((std::cos(angle) * 0.5f + 0.5f) * UINT16_MAX)),
         static_cast<uint16_t>(std::lround((std::sin(angle) * 0.5f + 0.5f) * UINT16_MAX)),
         UINT16_MAX,
-        UINT16_MAX
+        static_cast<uint16_t>((LIVE_CELL_STATE << SATURATION_BITS) | saturation_percent)
     };
     constexpr BrushTexel dead{};
     for (int y = top; y < bottom; ++y)
@@ -296,12 +301,12 @@ void AutomataGpu::Step(SDL_GPUCommandBuffer* commands, const SimulationControls&
     std::swap(m_current, m_next);
 }
 
-void AutomataGpu::Draw(SDL_GPUCommandBuffer* commands, SDL_GPURenderPass* pass, const GridView& view, float saturation) const
+void AutomataGpu::Draw(SDL_GPUCommandBuffer* commands, SDL_GPURenderPass* pass, const GridView& view) const
 {
     SDL_BindGPUGraphicsPipeline(pass, m_display_pipeline);
     const SDL_GPUTextureSamplerBinding binding{m_current, m_sampler};
     SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
-    const float viewport[]{view.left, view.top, 1.0f / view.zoom, saturation};
+    const float viewport[]{view.left, view.top, 1.0f / view.zoom, 0.0f};
     SDL_PushGPUFragmentUniformData(commands, 0, viewport, sizeof(viewport));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
 }
