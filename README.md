@@ -23,7 +23,11 @@ supports SPIR-V, typically Vulkan.
 
 The Simulation panel lets you pause, advance one generation while paused,
 toggle edge wrapping or fullscreen, and select the neighbor counts for birth
-and survival. Rule changes apply on the next generation.
+and survival. The default is Conway's Game of Life (B3/S23), with two cell
+states. Turn on **Aging states** to delay rebirth after a cell dies. **Max aging
+stages** sets the number of generations spent aging. Aging cells do not count
+as live neighbors. Disabling aging makes them eligible for birth on the next
+generation. Rule changes apply on the next generation.
 
 Living neighbors contribute their hue to the next generation. Dead cells keep
 their last hue and fade according to **Color retention**, the fraction of
@@ -33,7 +37,13 @@ dead generation, or to 1 to keep the trail visible. Fading cells do not count
 as living neighbors.
 
 The grid starts empty and paused at 4x zoom so individual cells are visible.
-Hold the left mouse button and drag to paint living cells. **Random hue per
+Hold the left mouse button and drag to paint living cells. **Brush size**
+sets the circular brush diameter from 1 to 500 cells on a logarithmic scale.
+Hold Shift while scrolling over the grid to resize it. Enable **Scale brush
+with zoom** to keep its apparent size roughly constant when zooming. The
+brush is still limited to 1–500 cells. Each cell whose center is inside or
+on the circle is randomly set alive or dead, with an even chance of either.
+**Random hue per
 stroke** picks a different color for every drag. Turn it off to use **Brush
 hue** instead. Scroll over the grid to zoom around the pointer,
 or use **Zoom** to zoom around the center. Hold the right mouse button and

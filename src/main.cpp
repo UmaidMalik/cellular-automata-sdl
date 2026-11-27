@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <cmath>
 #include <optional>
 #include <vector>
@@ -59,13 +60,15 @@ int main()
     std::optional<SDL_Point> previous_cell;
     std::vector<SDL_Point> stroke;
     float paint_hue = controls.brush_hue;
-    bool stroke_has_color = false;
+    bool stroke_started = false;
+    Uint32 stroke_seed = 0;
+    float brush_scroll = 0.0f;
+    float brush_screen_scale = controls.brush_size * view.zoom;
     bool reset_pending = false;
     bool panning = false;
     Renderer renderer(&window);
     AutomataGpu automata(window.GetGPUDevice());
-    if (!automata.Initialize(renderer.GetSwapchainFormat(), config::GRID_WIDTH, config::GRID_HEIGHT,
-                             config::MAX_STATES))
+    if (!automata.Initialize(renderer.GetSwapchainFormat(), config::GRID_WIDTH, config::GRID_HEIGHT))
         return ReportError("Initializing GPU simulation");
 
     ImGuiManager imgui(&window);
@@ -91,13 +94,16 @@ int main()
         {
             previous_cell.reset();
             panning = false;
-            stroke_has_color = false;
+            stroke_started = false;
             clock.Reset();
             SDL_Delay(10);
             continue;
         }
 
         imgui.BeginFrame();
+        const float previous_zoom = view.zoom;
+        const int previous_brush_size = controls.brush_size;
+        const bool was_synced = controls.sync_brush_with_zoom;
         float zoom = view.zoom;
         const auto action = imgui.Build(controls, zoom);
         reset_pending = reset_pending || action == SimulationAction::Reset;
@@ -112,7 +118,7 @@ int main()
         const ImVec2 screen = io.DisplaySize;
         stroke.clear();
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseClicked(ImGuiMouseButton_Left))
-            stroke_has_color = false;
+            stroke_started = false;
 
         const bool over_grid = !io.WantCaptureMouse && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) &&
             mouse.x >= 0.0f && mouse.y >= 0.0f &&
@@ -125,20 +131,43 @@ int main()
         else if (panning && screen.x > 0.0f && screen.y > 0.0f)
             view.Pan(io.MouseDelta.x / screen.x, io.MouseDelta.y / screen.y);
 
-        if (over_grid && !panning)
+        const bool can_edit_grid = over_grid && !panning;
+        if (can_edit_grid)
         {
-            const float x = mouse.x / screen.x;
-            const float y = mouse.y / screen.y;
-            if (io.MouseWheel != 0.0f)
+            if (io.KeyShift)
             {
-                view.SetZoom(view.zoom * std::pow(1.2f, io.MouseWheel), x, y);
+                brush_scroll += io.MouseWheel;
+                const int size_change = static_cast<int>(brush_scroll);
+                controls.brush_size = std::clamp(
+                    controls.brush_size + size_change, 1, SimulationControls::MAX_BRUSH_SIZE);
+                brush_scroll -= size_change;
+            }
+            else if (io.MouseWheel != 0.0f)
+            {
+                view.SetZoom(view.zoom * std::pow(1.2f, io.MouseWheel),
+                             mouse.x / screen.x, mouse.y / screen.y);
                 previous_cell.reset();
             }
+        }
+
+        if (!controls.sync_brush_with_zoom || !was_synced || controls.brush_size != previous_brush_size)
+        {
+            brush_screen_scale = controls.brush_size * view.zoom;
+        }
+        else if (view.zoom != previous_zoom)
+        {
+            // Keep the reference even when rounding or clamping the grid diameter.
+            const int size = static_cast<int>(std::lround(brush_screen_scale / view.zoom));
+            controls.brush_size = std::clamp(size, 1, SimulationControls::MAX_BRUSH_SIZE);
+        }
+
+        if (can_edit_grid)
+        {
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
                 previous_cell.reset();
             if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
             {
-                if (!stroke_has_color)
+                if (!stroke_started)
                 {
                     if (controls.random_brush_hue)
                     {
@@ -149,9 +178,11 @@ int main()
                     {
                         paint_hue = controls.brush_hue;
                     }
-                    stroke_has_color = true;
+                    stroke_seed = SDL_rand_bits();
+                    stroke_started = true;
                 }
-                const SDL_Point cell = view.CellAt(x, y, config::GRID_WIDTH, config::GRID_HEIGHT);
+                const SDL_Point cell = view.CellAt(mouse.x / screen.x, mouse.y / screen.y,
+                                                   config::GRID_WIDTH, config::GRID_HEIGHT);
                 AddStroke(stroke, previous_cell.value_or(cell), cell);
                 previous_cell = cell;
             }
@@ -195,7 +226,7 @@ int main()
                 for (int step = 0; step < steps; ++step)
                     automata.Step(commands, controls);
             }
-            if (!automata.Paint(commands, stroke, paint_hue))
+            if (!automata.Paint(commands, stroke, paint_hue, controls.brush_size, stroke_seed))
             {
                 // A command buffer with an acquired swapchain must be submitted.
                 renderer.SubmitCommandBuffer();
