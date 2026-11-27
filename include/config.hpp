@@ -23,6 +23,7 @@ struct SimulationControls
     bool aging_enabled = false;
     int aging_stages = 6;
     int brush_size = 1;
+    bool sync_brush_with_zoom = false;
     int generations_per_second = 60;
     bool paused = true;
     bool wrap_edges = true;

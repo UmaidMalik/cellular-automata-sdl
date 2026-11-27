@@ -63,6 +63,7 @@ int main()
     bool stroke_started = false;
     Uint32 stroke_seed = 0;
     float brush_scroll = 0.0f;
+    float brush_screen_scale = controls.brush_size * view.zoom;
     bool reset_pending = false;
     bool panning = false;
     Renderer renderer(&window);
@@ -100,6 +101,9 @@ int main()
         }
 
         imgui.BeginFrame();
+        const float previous_zoom = view.zoom;
+        const int previous_brush_size = controls.brush_size;
+        const bool was_synced = controls.sync_brush_with_zoom;
         float zoom = view.zoom;
         const auto action = imgui.Build(controls, zoom);
         reset_pending = reset_pending || action == SimulationAction::Reset;
@@ -127,10 +131,9 @@ int main()
         else if (panning && screen.x > 0.0f && screen.y > 0.0f)
             view.Pan(io.MouseDelta.x / screen.x, io.MouseDelta.y / screen.y);
 
-        if (over_grid && !panning)
+        const bool can_edit_grid = over_grid && !panning;
+        if (can_edit_grid)
         {
-            const float x = mouse.x / screen.x;
-            const float y = mouse.y / screen.y;
             if (io.KeyShift)
             {
                 brush_scroll += io.MouseWheel;
@@ -141,9 +144,25 @@ int main()
             }
             else if (io.MouseWheel != 0.0f)
             {
-                view.SetZoom(view.zoom * std::pow(1.2f, io.MouseWheel), x, y);
+                view.SetZoom(view.zoom * std::pow(1.2f, io.MouseWheel),
+                             mouse.x / screen.x, mouse.y / screen.y);
                 previous_cell.reset();
             }
+        }
+
+        if (!controls.sync_brush_with_zoom || !was_synced || controls.brush_size != previous_brush_size)
+        {
+            brush_screen_scale = controls.brush_size * view.zoom;
+        }
+        else if (view.zoom != previous_zoom)
+        {
+            // Keep the reference even when rounding or clamping the grid diameter.
+            const int size = static_cast<int>(std::lround(brush_screen_scale / view.zoom));
+            controls.brush_size = std::clamp(size, 1, SimulationControls::MAX_BRUSH_SIZE);
+        }
+
+        if (can_edit_grid)
+        {
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
                 previous_cell.reset();
             if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
@@ -162,7 +181,8 @@ int main()
                     stroke_seed = SDL_rand_bits();
                     stroke_started = true;
                 }
-                const SDL_Point cell = view.CellAt(x, y, config::GRID_WIDTH, config::GRID_HEIGHT);
+                const SDL_Point cell = view.CellAt(mouse.x / screen.x, mouse.y / screen.y,
+                                                   config::GRID_WIDTH, config::GRID_HEIGHT);
                 AddStroke(stroke, previous_cell.value_or(cell), cell);
                 previous_cell = cell;
             }
