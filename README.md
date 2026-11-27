@@ -68,6 +68,8 @@ often the window can present.
 
 ## Browser build
 
+[Run Cellular Automata on GitHub Pages](https://umaidmalik.github.io/cellular-automata-sdl/).
+
 Install and activate Emscripten 4.0.20, then run the following from the
 repository root with the third-party sources in place.
 

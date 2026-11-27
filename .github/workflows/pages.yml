@@ -2,7 +2,7 @@ name: WebAssembly and GitHub Pages
 
 on:
   push:
-    branches: [main, dev-webassembly-pages]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -50,7 +50,7 @@ jobs:
           path: build-web/site
 
   deploy:
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'push' && github.ref == 'refs/heads/dev-webassembly-pages')
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     permissions:
