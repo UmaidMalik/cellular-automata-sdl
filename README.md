@@ -34,7 +34,8 @@ For example, hues on either side of red blend to red. If the neighbors'
 hues cancel, a survivor keeps its hue and a birth uses the first live
 neighbor's hue. Cells keep their last color as they age and die. Once dead,
 they fade according to **Color retention**, the fraction of brightness kept
-per generation. The slider gives finer control near 1, where small changes
+per generation. The panel shows both the decimal value and its percentage.
+The slider gives finer control near 1, where small changes
 make trails last much longer. Set it to 0 for immediate fading on the next
 dead generation, or to 1 to keep the trail visible. Fading cells do not count
 as living neighbors.
@@ -53,6 +54,8 @@ or use **Zoom** to zoom around the center. Hold the right mouse button and
 drag to pan. Set zoom to 1x to see the entire grid.
 
 Unpause the simulation or use **Step** to advance one generation. **Reset**
-clears the grid and pauses the simulation. Use **Speed** to set a target from
+clears the grid and pauses the simulation. Enable **Pause on draw** to stop
+automatic generations while painting. Releasing the brush resumes a running
+simulation. Use **Speed** to set a target from
 1 to 120 generations per second. The actual rate depends on GPU work and how
 often the window can present.

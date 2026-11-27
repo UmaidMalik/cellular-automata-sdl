@@ -189,7 +189,7 @@ void EditColorRetention(float& retention)
             1.0f - std::expm1((1.0f - position) * log_range) / std::expm1(log_range), 0.0f, 1.0f);
     }
     ImGui::SameLine();
-    ImGui::Text("%.4f", retention);
+    ImGui::Text("%.4f (%.2f%%)", retention, 100.0f * retention);
 }
 }
 
@@ -211,6 +211,8 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom)
             action = SimulationAction::Reset;
         }
 
+        ImGui::Checkbox("Pause on draw", &controls.pause_on_draw);
+        ImGui::SetItemTooltip("Pause automatic generations while painting.");
         ImGui::SliderInt("Speed", &controls.generations_per_second,
                          SimulationControls::MIN_GENERATIONS_PER_SECOND,
                          SimulationControls::MAX_GENERATIONS_PER_SECOND,
