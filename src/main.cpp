@@ -54,6 +54,15 @@ SDL_AppResult ReportError(const char* action)
     return SDL_APP_FAILURE;
 }
 
+struct PinchSample
+{
+    SDL_TouchID device;
+    SDL_FingerID first;
+    SDL_FingerID second;
+    SDL_FPoint center;
+    float distance;
+};
+
 class Application
 {
 public:
@@ -78,6 +87,9 @@ private:
     SimulationClock clock;
     Uint64 previous_frame = 0;
     std::optional<SDL_Point> previous_cell;
+    std::optional<SDL_Point> pending_touch_cell;
+    std::optional<PinchSample> pinch;
+    Uint64 touch_start_time = 0;
     std::vector<SDL_Point> stroke;
     float paint_hue = controls.brush_hue;
     bool stroke_started = false;
@@ -135,6 +147,8 @@ SDL_AppResult Application::Frame()
     {
         previous_cell.reset();
         panning = false;
+        pinch.reset();
+        pending_touch_cell.reset();
         stroke_started = false;
         clock.Reset();
 #ifndef __EMSCRIPTEN__
@@ -178,7 +192,11 @@ SDL_AppResult Application::Frame()
     const SDL_Rect viewport = FitGridViewport(pixel_width, pixel_height,
                                               GRID_ASPECT_RATIOS[view.aspect_index]);
     if (view.SetViewport(viewport, grid.x, grid.y))
+    {
         previous_cell.reset();
+        pending_touch_cell.reset();
+        pinch.reset();
+    }
     if (zoom != view.zoom)
     {
         view.SetZoom(zoom, 0.5f, 0.5f);
@@ -186,17 +204,64 @@ SDL_AppResult Application::Frame()
     }
     const bool has_viewport = viewport.w > 0 && viewport.h > 0 && screen.x > 0.0f && screen.y > 0.0f;
     const ImVec2 pixel_scale = has_viewport ? ImVec2(pixel_width / screen.x, pixel_height / screen.y) : ImVec2();
-    const ImVec2 pointer = has_viewport
-        ? ImVec2((mouse.x * pixel_scale.x - viewport.x) / viewport.w,
-                 (mouse.y * pixel_scale.y - viewport.y) / viewport.h)
-        : ImVec2(-1.0f, -1.0f);
+    const auto viewport_position = [&](float x, float y) {
+        return has_viewport ? SDL_FPoint{(x - viewport.x) / viewport.w, (y - viewport.y) / viewport.h}
+                            : SDL_FPoint{-1.0f, -1.0f};
+    };
+    const auto inside_viewport = [](SDL_FPoint point) {
+        return point.x >= 0.0f && point.y >= 0.0f && point.x < 1.0f && point.y < 1.0f;
+    };
+    const auto pointer = viewport_position(mouse.x * pixel_scale.x, mouse.y * pixel_scale.y);
     const bool erase = controls.erase_brush || (!io.WantTextInput && SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_X]);
     stroke.clear();
-    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+    const bool pressed = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    const bool held = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    const bool released = ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+    const bool touch_pointer = io.MouseSource == ImGuiMouseSource_TouchScreen;
+    if (pressed || (!held && !released))
         stroke_started = false;
 
-    const bool over_grid = !io.WantCaptureMouse && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) &&
-        pointer.x >= 0.0f && pointer.y >= 0.0f && pointer.x < 1.0f && pointer.y < 1.0f;
+    const bool over_ui = io.WantCaptureMouse || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+    const bool over_grid = !over_ui && inside_viewport(pointer);
+    const auto touches = events.Touches();
+    const bool block_touch_paint = events.MultitouchSequence() && (touch_pointer || !touches.empty());
+    if (block_touch_paint)
+    {
+        pending_touch_cell.reset();
+        previous_cell.reset();
+        stroke_started = false;
+    }
+
+    if (has_viewport && touches.size() == 2 && touches[0].device == touches[1].device)
+    {
+        const auto& first = touches[0];
+        const auto& second = touches[1];
+        const bool same_pair = pinch && pinch->device == first.device &&
+            pinch->first == first.id && pinch->second == second.id;
+        const auto from_touch = [&](SDL_FPoint point) {
+            return viewport_position(point.x * pixel_width, point.y * pixel_height);
+        };
+        if (same_pair || (!over_ui && inside_viewport(from_touch(first.origin)) &&
+                          inside_viewport(from_touch(second.origin))))
+        {
+            const SDL_FPoint center{(first.position.x + second.position.x) * 0.5f,
+                                    (first.position.y + second.position.y) * 0.5f};
+            const float distance = std::hypot((first.position.x - second.position.x) * pixel_width,
+                                              (first.position.y - second.position.y) * pixel_height);
+            const PinchSample current{first.device, first.id, second.id, from_touch(center), distance};
+            if (same_pair)
+            {
+                if (pinch->distance >= 1.0f && current.distance >= 1.0f)
+                    view.SetZoom(view.zoom * (current.distance / pinch->distance), pinch->center.x, pinch->center.y);
+                view.Pan(current.center.x - pinch->center.x, current.center.y - pinch->center.y);
+            }
+            pinch = current;
+        }
+        else
+            pinch.reset();
+    }
+    else
+        pinch.reset();
 
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Right))
         panning = false;
@@ -205,7 +270,7 @@ SDL_AppResult Application::Frame()
     else if (panning && has_viewport)
         view.Pan(io.MouseDelta.x * pixel_scale.x / viewport.w, io.MouseDelta.y * pixel_scale.y / viewport.h);
 
-    const bool can_edit_grid = over_grid && !panning;
+    const bool can_edit_grid = over_grid && !panning && !block_touch_paint;
     if (can_edit_grid)
     {
         if (io.KeyShift)
@@ -235,32 +300,45 @@ SDL_AppResult Application::Frame()
         controls.brush_size = std::clamp(size, 1, SimulationControls::MAX_BRUSH_SIZE);
     }
 
-    if (can_edit_grid)
+    if (pressed)
     {
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
-            previous_cell.reset();
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+        previous_cell.reset();
+        pending_touch_cell.reset();
+        if (touch_pointer && can_edit_grid)
         {
-            if (!erase && !stroke_started)
-            {
-                if (controls.random_brush_hue)
-                {
-                    // Stay at least one eighth of the hue wheel away from the last stroke.
-                    paint_hue = std::fmod(paint_hue + 0.125f + 0.75f * SDL_randf(), 1.0f);
-                }
-                else
-                {
-                    paint_hue = controls.brush_hue;
-                }
-                stroke_seed = SDL_rand_bits();
-                stroke_started = true;
-            }
-            const SDL_Point cell = view.CellAt(pointer.x, pointer.y,
-                                               grid.x, grid.y);
-            AddStroke(stroke, previous_cell.value_or(cell), cell);
-            previous_cell = cell;
+            pending_touch_cell = view.CellAt(pointer.x, pointer.y, grid.x, grid.y);
+            touch_start_time = now;
         }
     }
+    // Wait briefly for a second finger before putting down the first cell.
+    // A quick single-finger tap still paints when the finger lifts.
+    const bool touch_tap = touch_pointer && released && pending_touch_cell.has_value();
+    const bool touch_drag = touch_pointer && held && !touches.empty() &&
+        now - touch_start_time >= SDL_MS_TO_NS(90);
+    const bool paint = can_edit_grid && (touch_pointer ? touch_tap || touch_drag : held);
+    if (paint)
+    {
+        if (!erase && !stroke_started)
+        {
+            if (controls.random_brush_hue)
+            {
+                // Stay at least one eighth of the hue wheel away from the last stroke.
+                paint_hue = std::fmod(paint_hue + 0.125f + 0.75f * SDL_randf(), 1.0f);
+            }
+            else
+            {
+                paint_hue = controls.brush_hue;
+            }
+            stroke_seed = SDL_rand_bits();
+            stroke_started = true;
+        }
+        const SDL_Point cell = view.CellAt(pointer.x, pointer.y, grid.x, grid.y);
+        AddStroke(stroke, previous_cell.value_or(pending_touch_cell.value_or(cell)), cell);
+        previous_cell = cell;
+        pending_touch_cell.reset();
+    }
+    if (released)
+        pending_touch_cell.reset();
     if (stroke.empty())
         previous_cell.reset();
     imgui.EndFrame();
