@@ -23,7 +23,18 @@ struct alignas(16) AutomataParams
 };
 static_assert(sizeof(AutomataParams) == 48);
 using BrushTexel = std::array<uint16_t, 4>;
-constexpr Uint32 BRUSH_ROW_ALIGNMENT = 256;
+// Align both row pitch and source offset for SDL GPU backends such as D3D12.
+constexpr Uint32 BRUSH_ROW_ALIGNMENT = 512;
+
+bool BrushCellIsAlive(Uint32 seed, int x, int y)
+{
+    Uint32 hash = seed ^ (static_cast<Uint32>(x) * 0x9e3779b9u) ^ (static_cast<Uint32>(y) * 0x85ebca6bu);
+    hash ^= hash >> 16;
+    hash *= 0x7feb352du;
+    hash ^= hash >> 15;
+    hash *= 0x846ca68bu;
+    return ((hash ^ (hash >> 16)) >> 31) != 0;
+}
 static_assert(sizeof(BrushTexel) == 8);
 
 SDL_GPUGraphicsPipeline* CreatePipeline(SDL_GPUDevice* device, SDL_GPUShader* vertex,
@@ -116,15 +127,6 @@ bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int
     if (!m_sampler)
         return false;
 
-    const Uint32 row_bytes = width * sizeof(BrushTexel);
-    const Uint32 aligned_bytes =
-        (row_bytes + BRUSH_ROW_ALIGNMENT - 1) / BRUSH_ROW_ALIGNMENT * BRUSH_ROW_ALIGNMENT;
-    m_brush_pitch = aligned_bytes / sizeof(BrushTexel);
-    const SDL_GPUTransferBufferCreateInfo brush_info{SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, aligned_bytes};
-    m_brush = SDL_CreateGPUTransferBuffer(m_device, &brush_info);
-    if (!m_brush)
-        return false;
-
     auto* commands = SDL_AcquireGPUCommandBuffer(m_device);
     if (!commands)
         return false;
@@ -144,7 +146,7 @@ void AutomataGpu::Clear(SDL_GPUCommandBuffer* commands)
 }
 
 bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> stroke,
-                        float hue, int size)
+                        float hue, int size, Uint32 seed)
 {
     if (stroke.empty())
         return true;
@@ -176,6 +178,10 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
     {
         int left;
         int right;
+        Uint32 offset = 0;
+        Uint32 pitch = 0;
+
+        int Width() const { return right - left; }
     };
     std::vector<Row> rows(bottom - top, Row{m_width, 0});
     for (const auto cell : stroke)
@@ -199,23 +205,51 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
         }
     }
 
+    Uint32 bytes = 0;
+    for (auto& row : rows)
+    {
+        if (row.Width() <= 0)
+            continue;
+        const Uint32 row_bytes = row.Width() * sizeof(BrushTexel);
+        row.offset = bytes;
+        row.pitch = (row_bytes + BRUSH_ROW_ALIGNMENT - 1) / BRUSH_ROW_ALIGNMENT * BRUSH_ROW_ALIGNMENT;
+        bytes += row.pitch;
+    }
+
+    if (bytes > m_brush_capacity)
+    {
+        const Uint32 capacity = std::max(bytes, m_brush_capacity * 2);
+        const SDL_GPUTransferBufferCreateInfo info{SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, capacity};
+        auto* buffer = SDL_CreateGPUTransferBuffer(m_device, &info);
+        if (!buffer)
+            return false;
+
+        if (m_brush)
+            SDL_ReleaseGPUTransferBuffer(m_device, m_brush);
+        m_brush = buffer;
+        m_brush_capacity = capacity;
+    }
+
     auto* data = static_cast<BrushTexel*>(SDL_MapGPUTransferBuffer(m_device, m_brush, true));
     if (!data)
         return false;
 
-    const BrushTexel texel{
+    const BrushTexel alive{
         static_cast<uint16_t>(std::lround(hue * UINT16_MAX)), UINT16_MAX, UINT16_MAX, UINT16_MAX
     };
-    int max_width = 0;
-    for (const auto row : rows)
-        max_width = std::max(max_width, row.right - row.left);
-    std::fill_n(data, max_width, texel);
+    constexpr BrushTexel dead{};
+    for (int y = top; y < bottom; ++y)
+    {
+        const auto& row = rows[y - top];
+        auto* pixels = data + row.offset / sizeof(BrushTexel);
+        for (int x = row.left; x < row.right; ++x)
+            pixels[x - row.left] = BrushCellIsAlive(seed, x, y) ? alive : dead;
+    }
     SDL_UnmapGPUTransferBuffer(m_device, m_brush);
 
     auto* pass = SDL_BeginGPUCopyPass(commands);
     SDL_GPUTextureTransferInfo source{};
     source.transfer_buffer = m_brush;
-    source.pixels_per_row = m_brush_pitch;
     source.rows_per_layer = 1;
 
     SDL_GPUTextureRegion destination{};
@@ -223,12 +257,14 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
     destination.h = destination.d = 1;
     for (int y = top; y < bottom; ++y)
     {
-        const auto row = rows[y - top];
-        if (row.left >= row.right)
+        const auto& row = rows[y - top];
+        if (row.Width() <= 0)
             continue;
+        source.offset = row.offset;
+        source.pixels_per_row = row.pitch / sizeof(BrushTexel);
         destination.x = row.left;
         destination.y = y;
-        destination.w = row.right - row.left;
+        destination.w = row.Width();
         SDL_UploadToGPUTexture(pass, &source, &destination, false);
     }
     SDL_EndGPUCopyPass(pass);
