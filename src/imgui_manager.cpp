@@ -1,3 +1,4 @@
+#include "brush.hpp"
 #include "config.hpp"
 #include "grid_view.hpp"
 #include "rule_presets.hpp"
@@ -491,7 +492,7 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
 
         ImGui::SliderFloat("Zoom", &zoom, GridView::MIN_ZOOM, GridView::MAX_ZOOM,
                            "%.1fx", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
-        ImGui::SliderInt("Brush size", &controls.brush_size, 1, SimulationControls::MAX_BRUSH_SIZE,
+        ImGui::SliderInt("Brush size", &controls.brush_size, 1, MaxBrushSize(grid.x),
                          "%d cells", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
         ImGui::SetItemTooltip("Shift + scroll over the grid to resize the brush.");
         ImGui::Checkbox("Solid brush", &controls.solid_brush);

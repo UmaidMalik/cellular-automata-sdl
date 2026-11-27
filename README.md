@@ -16,6 +16,8 @@ cmake --build build-linux
 
 ## Running the simulation
 
+![Cellular Automata running with colored cell patterns drawn on the grid](docs/simulation.png)
+
 Launch `CellularAutomata` from the build output (`build/bin/Debug` for the
 Visual Studio Debug build). CMake copies the SPIR-V shaders into the `shaders`
 folder beside the executable. The app requires an SDL GPU backend that
@@ -70,11 +72,12 @@ require more GPU memory. The other side follows the selected
 aspect ratio. **Apply grid size** preserves the overlapping center of the
 grid, clears newly added space, and drops any cells outside the new edges.
 **Brush size**
-sets the circular brush diameter from 1 to 500 cells on a logarithmic scale.
+sets the circular brush diameter on a logarithmic scale, from one cell up to
+one-fifth of the current grid width, rounded down.
 The default diameter is 12 cells.
 Hold Shift while scrolling over the grid to resize it. The **Scale brush
 with zoom** (on by default) keeps the brush's apparent size roughly constant
-when zooming. The brush is still limited to 1–500 cells. Each cell whose center is inside or
+when zooming, within the brush size limit. Each cell whose center is inside or
 on the circle is randomly set alive or dead by default, with an even chance
 of either. Turn on **Solid brush** to make every cell in the circle alive.
 **Random hue per

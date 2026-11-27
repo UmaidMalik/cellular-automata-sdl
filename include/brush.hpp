@@ -42,6 +42,11 @@ struct BrushRow
     int Width() const { return right - left; }
 };
 
+constexpr int MaxBrushSize(int grid_width)
+{
+    return std::max(1, grid_width / 5);
+}
+
 inline std::vector<BrushRow> RasterizeBrush(std::span<const SDL_Point> stroke, int size, int width, int height)
 {
     if (stroke.empty())
@@ -52,7 +57,7 @@ inline std::vector<BrushRow> RasterizeBrush(std::span<const SDL_Point> stroke, i
     // can be centered between cells. Their outermost rows still get two cells.
     const int diameter = size - 1;
     const int radius_squared = diameter * diameter + (size % 2 == 0 ? 1 : 0);
-    std::array<int, SimulationControls::MAX_BRUSH_SIZE> insets{};
+    std::vector<int> insets(size);
     for (int y = 0; y < size; ++y)
     {
         const int dy = 2 * y - diameter;

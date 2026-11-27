@@ -213,6 +213,7 @@ SDL_AppResult Application::Frame()
         else
         {
             grid = requested;
+            controls.brush_size = std::min(controls.brush_size, MaxBrushSize(grid.x));
             previous_cell.reset();
             clock.Reset();
             previous_frame = SDL_GetTicksNS();
@@ -333,7 +334,7 @@ SDL_AppResult Application::Frame()
             brush_scroll += io.MouseWheel;
             const int size_change = static_cast<int>(brush_scroll);
             controls.brush_size = std::clamp(
-                controls.brush_size + size_change, 1, SimulationControls::MAX_BRUSH_SIZE);
+                controls.brush_size + size_change, 1, MaxBrushSize(grid.x));
             brush_scroll -= size_change;
         }
         else if (io.MouseWheel != 0.0f)
@@ -352,7 +353,7 @@ SDL_AppResult Application::Frame()
     {
         // Keep the reference even when rounding or clamping the grid diameter.
         const int size = static_cast<int>(std::lround(brush_screen_scale / view.zoom));
-        controls.brush_size = std::clamp(size, 1, SimulationControls::MAX_BRUSH_SIZE);
+        controls.brush_size = std::clamp(size, 1, MaxBrushSize(grid.x));
     }
 
     if (pressed)
