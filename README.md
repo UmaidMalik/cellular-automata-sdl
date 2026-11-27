@@ -46,7 +46,7 @@ painted cells from 25% to 100%. Existing cells keep their saturation when
 the slider changes. A birth inherits the average saturation of its live
 neighbors.
 
-The grid starts empty and paused at 4x zoom or closer on narrow screens so
+The grid starts empty and running at 4x zoom or closer on narrow screens so
 individual cells are visible.
 Hold the left mouse button and drag to paint living cells. Hold **X** while
 drawing to erase, or toggle **Erase brush**. The touch browser layout
@@ -60,10 +60,12 @@ aspect ratio. **Apply grid size** preserves the overlapping center of the
 grid, clears newly added space, and drops any cells outside the new edges.
 **Brush size**
 sets the circular brush diameter from 1 to 500 cells on a logarithmic scale.
+The default diameter is 12 cells.
 Hold Shift while scrolling over the grid to resize it. The **Scale brush
 with zoom** (on by default) keeps the brush's apparent size roughly constant
 when zooming. The brush is still limited to 1–500 cells. Each cell whose center is inside or
-on the circle is randomly set alive or dead, with an even chance of either.
+on the circle is randomly set alive or dead by default, with an even chance
+of either. Turn on **Solid brush** to make every cell in the circle alive.
 **Random hue per
 stroke** picks a different color for every drag. Turn it off to use **Brush
 hue** instead. Scroll over the grid to zoom around the pointer,
@@ -71,7 +73,7 @@ or use **Zoom** to zoom around the center. Hold the right mouse button and
 drag to pan. Set zoom to 1x to see the entire grid.
 
 Unpause the simulation or use **Step** to advance one generation. **Reset**
-clears the grid and pauses the simulation. Enable **Pause on draw** to stop
+clears the grid and keeps the current pause state. Enable **Pause on draw** to stop
 automatic generations while painting. Releasing the brush resumes a running
 simulation. Use **Speed** to set a target from
 1 to 120 generations per second. The actual rate depends on GPU work and how
