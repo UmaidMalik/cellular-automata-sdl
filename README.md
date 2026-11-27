@@ -65,3 +65,21 @@ automatic generations while painting. Releasing the brush resumes a running
 simulation. Use **Speed** to set a target from
 1 to 120 generations per second. The actual rate depends on GPU work and how
 often the window can present.
+
+## Browser build
+
+[Run Cellular Automata on GitHub Pages](https://umaidmalik.github.io/cellular-automata-sdl/).
+
+Install and activate Emscripten 4.0.20, then run the following from the
+repository root with the third-party sources in place.
+
+```sh
+emcmake cmake -S . -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-web
+python -m http.server 8000 --directory build-web/site
+```
+
+Open `http://localhost:8000` in a browser with WebGL 2. The browser build uses
+the same update shader and simulation controls as the desktop build.
+The GitHub Actions workflow builds pull requests and publishes pushes to
+`main` when GitHub Pages is configured to use GitHub Actions.

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cellular Automata</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: #fff; }
+    canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+    #status { position: fixed; inset: 1rem auto auto 1rem; font: 1rem system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" aria-label="Cellular Automata grid" tabindex="0"></canvas>
+  <p id="status" role="status">Loading Cellular Automata…</p>
+  <script>
+    const canvas = document.getElementById("canvas");
+    const statusMessage = document.getElementById("status");
+    canvas.addEventListener("contextmenu", event => event.preventDefault());
+    var Module = {
+      canvas,
+      postRun: [() => { statusMessage.hidden = true; }],
+      onAbort: () => { statusMessage.textContent = "Cellular Automata could not start. Check that WebGL 2 is available."; },
+      onExit: (code) => {
+        if (code !== 0) {
+          statusMessage.hidden = false;
+          statusMessage.textContent = "Cellular Automata could not start. Check that WebGL 2 is available.";
+        }
+      }
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>
