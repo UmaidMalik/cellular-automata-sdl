@@ -5,6 +5,7 @@
 #include "web_shaders.hpp"
 
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <vector>
 
 namespace
@@ -89,6 +90,15 @@ WebAutomata::~WebAutomata()
         glDeleteFramebuffers(m_targets.size(), m_targets.data());
     if (m_textures[0])
         glDeleteTextures(m_textures.size(), m_textures.data());
+}
+
+int WebAutomata::MaxGridSize()
+{
+    GLint max_texture = 0;
+    GLint max_viewport[2]{};
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture);
+    glGetIntegerv(GL_MAX_VIEWPORT_DIMS, max_viewport);
+    return std::min({max_texture, max_viewport[0], max_viewport[1]});
 }
 
 bool WebAutomata::Initialize(int width, int height)

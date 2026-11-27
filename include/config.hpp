@@ -23,7 +23,8 @@ struct SimulationControls
     static constexpr int MAX_AGING_STAGES = 255;
     static constexpr int MAX_BRUSH_SIZE = 500;
     static constexpr int MIN_GRID_SIZE = 128;
-    static constexpr int MAX_GRID_SIZE = 3200;
+    static constexpr int MAX_MOBILE_GRID_SIZE = 3200;
+    static constexpr int MAX_DESKTOP_GRID_SIZE = 12000;
     static constexpr int MIN_BRUSH_SATURATION = 25;
     static constexpr int MAX_BRUSH_SATURATION = 100;
 

@@ -64,7 +64,9 @@ two fingers to pinch to zoom or drag to pan. The browser keeps the view
 centered and preserves the apparent cell size when you rotate your phone. Use **Aspect ratio** to choose a viewport preset or **Auto (fit window)** to
 follow the current window size. Auto is the default. Aspect changes crop the
 visible grid while keeping cells square. **Grid size** sets the length of
-the longer side from 128 to 3200 cells. The other side follows the selected
+the longer side from 128 to 3,200 cells on mobile browsers and up to 12,000 cells
+on desktop. The browser's WebGL limits can reduce the maximum, and larger grids
+require more GPU memory. The other side follows the selected
 aspect ratio. **Apply grid size** preserves the overlapping center of the
 grid, clears newly added space, and drops any cells outside the new edges.
 **Brush size**
