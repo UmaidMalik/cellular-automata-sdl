@@ -10,17 +10,15 @@ Window::Window(int width, int height, const char* title)
 
 Window::~Window()
 {
-    if (!m_sdl_window)
+    if (m_gpu_device)
     {
-        return;
+        SDL_WaitForGPUIdle(m_gpu_device);
+        if (m_window_claimed)
+            SDL_ReleaseWindowFromGPUDevice(m_gpu_device, m_sdl_window);
+        SDL_DestroyGPUDevice(m_gpu_device);
     }
-
-    // [If using SDL_MAIN_USE_CALLBACKS: all code below would likely be your SDL_AppQuit() function]
-    SDL_WaitForGPUIdle(m_gpu_device);
-    SDL_ReleaseWindowFromGPUDevice(m_gpu_device, m_sdl_window);
-    SDL_DestroyGPUDevice(m_gpu_device);
-
-    SDL_DestroyWindow(m_sdl_window);
+    if (m_sdl_window)
+        SDL_DestroyWindow(m_sdl_window);
     SDL_Quit();
 
     SDL_Log("~Window() destructor called and exited\n");
@@ -49,7 +47,6 @@ int Window::CreateWindow(SDL_WindowFlags window_flags)
     }
     SDL_Log("Window created successfully: %s", m_window_title);
     SDL_SetWindowPosition(m_sdl_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-    SDL_ShowWindow(m_sdl_window);
     return 0;
 }
 
@@ -57,10 +54,8 @@ int Window::CreateGPUDevice()
 {
     m_gpu_device = SDL_CreateGPUDevice
     (
-        SDL_GPU_SHADERFORMAT_SPIRV |
-        SDL_GPU_SHADERFORMAT_DXIL |
-        SDL_GPU_SHADERFORMAT_METALLIB,
-        true,
+        SDL_GPU_SHADERFORMAT_SPIRV,
+        false,
         nullptr
     );
     if (!m_gpu_device)
@@ -106,6 +101,7 @@ int Window::ClaimWindowForGPUDevice()
         SDL_Log("Error: SDL_ClaimWindowForGPUDevice(): %s\n", SDL_GetError());
         return -1;
     }
+    m_window_claimed = true;
     return 0;
 }
 
@@ -119,8 +115,8 @@ int Window::SetGPUSwapchainParams
     (
         m_gpu_device,
         m_sdl_window,
-        SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
-        SDL_GPU_PRESENTMODE_VSYNC
+        swapchain_composition,
+        present_mode
     ))
     {
         SDL_Log("Error: SDL_setGPUSwapchainParameters(): %s\n", SDL_GetError());
@@ -131,13 +127,11 @@ int Window::SetGPUSwapchainParams
 
 bool Window::SetupWindow()
 {
-    int status = 0;
-    status += InitWindow();
-    status += CreateWindow(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-    status += CreateGPUDevice();
-    status += ClaimWindowForGPUDevice();
-    status += SetGPUSwapchainParams(SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
-    if (status != 0)
+    if (InitWindow() != 0 ||
+        CreateWindow(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY) != 0 ||
+        CreateGPUDevice() != 0 ||
+        ClaimWindowForGPUDevice() != 0 ||
+        SetGPUSwapchainParams(SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC) != 0)
     {
         std::cerr << "Error: window setup failed\n";
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", "Ran into an error during window setup :(", nullptr);
