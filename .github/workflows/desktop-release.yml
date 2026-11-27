@@ -94,8 +94,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          cat > release-notes.md <<'EOF'
+          [Play in your browser on GitHub Pages](https://umaidmalik.github.io/cellular-automata-sdl/). This link opens the latest web build.
+
+          Extract the entire desktop archive and keep the `shaders` folder alongside the executable. The x64 builds require a Vulkan-capable graphics driver. The Linux build targets Ubuntu 24.04 and compatible distributions.
+          EOF
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --verify-tag --title "Cellular Automata $GITHUB_REF_NAME" --generate-notes \
-            --notes 'Extract the entire archive and keep the `shaders` folder alongside the executable. The x64 builds require a Vulkan-capable graphics driver. The Linux build targets Ubuntu 24.04 and compatible distributions.' \
+            --notes-file release-notes.md \
             "release/CellularAutomata-${GITHUB_REF_NAME}-windows-x64.zip" \
             "release/CellularAutomata-${GITHUB_REF_NAME}-linux-x64.tar.gz"
