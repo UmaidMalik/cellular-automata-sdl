@@ -24,7 +24,10 @@ supports SPIR-V, typically Vulkan.
 The Simulation panel lets you pause, advance one generation while paused,
 toggle edge wrapping or fullscreen, and select the neighbor counts for birth
 and survival. The default is Conway's Game of Life (B3/S23), with two cell
-states. Turn on **Aging states** to delay rebirth after a cell dies. **Max aging
+states. **Neighborhood** selects an odd square from 3x3 (8 neighbors) to
+11x11 (120 neighbors). The center cell is excluded. Birth and survival
+settings for larger counts are remembered when you switch to a smaller
+neighborhood. Turn on **Aging states** to delay rebirth after a cell dies. **Max aging
 stages** sets the number of generations spent aging. Aging cells do not count
 as live neighbors. Disabling aging makes them eligible for birth on the next
 generation. Rule changes apply on the next generation.

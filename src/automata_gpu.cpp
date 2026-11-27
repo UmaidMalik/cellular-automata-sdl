@@ -20,9 +20,10 @@ struct alignas(16) AutomataParams
     int32_t aging_stages;
     float decay;
     int32_t padding[2];
-    uint32_t birth_low, birth_high, survival_low, survival_high;
+    NeighborRule birth_mask;
+    NeighborRule survival_mask;
 };
-static_assert(sizeof(AutomataParams) == 48);
+static_assert(sizeof(AutomataParams) == 64);
 using BrushTexel = std::array<uint16_t, 4>;
 // Align both row pitch and source offset for SDL GPU backends such as D3D12.
 constexpr Uint32 BRUSH_ROW_ALIGNMENT = 512;
@@ -286,8 +287,8 @@ void AutomataGpu::Step(SDL_GPUCommandBuffer* commands, const SimulationControls&
     SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
 
     const AutomataParams params{
-        m_width, m_height, SimulationControls::NEIGHBOR_RANGE, controls.wrap_edges,
-        controls.aging_enabled ? controls.aging_stages : 0, controls.color_decay, {}, controls.birth_mask, 0, controls.survival_mask, 0
+        m_width, m_height, controls.neighbor_radius, controls.wrap_edges,
+        controls.aging_enabled ? controls.aging_stages : 0, controls.color_decay, {}, controls.birth_mask, controls.survival_mask
     };
     SDL_PushGPUFragmentUniformData(commands, 0, &params, sizeof(params));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);

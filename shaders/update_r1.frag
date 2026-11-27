@@ -6,13 +6,13 @@ layout(std140, set = 3, binding = 0) uniform Params
     ivec4 grid; // width, height, range, wrap
     int agingStages;
     float decay;
-    uvec4 rules; // birth low/high, survival low/high
+    uvec4 birthMask;
+    uvec4 survivalMask;
 } U;
 
-bool matchesRule(uint lo, uint hi, int count)
+bool matchesRule(uvec4 mask, int count)
 {
-    return count < 32 ? (lo & (1u << uint(count))) != 0u
-                      : (hi & (1u << uint(count - 32))) != 0u;
+    return (mask[count / 32] & (1u << uint(count % 32))) != 0u;
 }
 
 ivec2 samplePosition(ivec2 position)
@@ -54,8 +54,8 @@ void main()
     int state = int(round(cell.a * STATE_SCALE));
     if (state != LIVE_STATE && U.agingStages == 0)
         state = 0;
-    bool born = state == 0 && matchesRule(U.rules.x, U.rules.y, neighbors);
-    bool survives = state == LIVE_STATE && matchesRule(U.rules.z, U.rules.w, neighbors);
+    bool born = state == 0 && matchesRule(U.birthMask, neighbors);
+    bool survives = state == LIVE_STATE && matchesRule(U.survivalMask, neighbors);
     if (state == 0 && !born)
     {
         // Round down to prevent small decay steps from getting stuck at a nonzero UNORM value.

@@ -7,6 +7,7 @@
 #include "window.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <iostream>
 
 ImGuiManager::ImGuiManager(Window* window) 
@@ -160,17 +161,38 @@ void ImGuiManager::BeginFrame()
 
 namespace
 {
-void EditRule(const char* label, unsigned int& mask)
+void EditRule(const char* label, NeighborRule& mask, int max_neighbors)
 {
     ImGui::TextUnformatted(label);
     ImGui::PushID(label);
-    for (int count = 0; count <= SimulationControls::MAX_NEIGHBORS; ++count)
+
+    const bool scroll = max_neighbors > 8;
+    if (scroll)
     {
-        if (count > 0)
-            ImGui::SameLine();
-        const char text[] = {static_cast<char>('0' + count), '\0'};
-        ImGui::CheckboxFlags(text, &mask, 1u << count);
+        const float row_height = ImGui::GetFrameHeightWithSpacing();
+        ImGui::BeginChild("Counts scroll", ImVec2(row_height * 20.0f, row_height * 3.6f),
+                          ImGuiChildFlags_Borders);
     }
+
+    if (!scroll || ImGui::BeginTable("Counts", 8, ImGuiTableFlags_SizingStretchSame))
+    {
+        for (int count = 0; count <= max_neighbors; ++count)
+        {
+            if (scroll)
+                ImGui::TableNextColumn();
+            else if (count > 0)
+                ImGui::SameLine();
+
+            char text[4];
+            std::snprintf(text, sizeof(text), "%d", count);
+            ImGui::CheckboxFlags(text, &mask[count / 32], 1u << (count % 32));
+        }
+        if (scroll)
+            ImGui::EndTable();
+    }
+
+    if (scroll)
+        ImGui::EndChild();
     ImGui::PopID();
 }
 
@@ -222,8 +244,15 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom)
         if (ImGui::Checkbox("Fullscreen", &fullscreen))
             m_window->SetFullscreen(fullscreen);
 
-        EditRule("Birth neighbors", controls.birth_mask);
-        EditRule("Survival neighbors", controls.survival_mask);
+        const char* const neighborhoods[]{"3 x 3", "5 x 5", "7 x 7", "9 x 9", "11 x 11"};
+        static_assert(IM_ARRAYSIZE(neighborhoods) == SimulationControls::MAX_NEIGHBOR_RADIUS);
+        int neighborhood = controls.neighbor_radius - 1;
+        if (ImGui::Combo("Neighborhood", &neighborhood, neighborhoods, IM_ARRAYSIZE(neighborhoods)))
+            controls.neighbor_radius = neighborhood + 1;
+        const int width = controls.neighbor_radius * 2 + 1;
+        const int max_neighbors = width * width - 1;
+        EditRule("Birth neighbors", controls.birth_mask, max_neighbors);
+        EditRule("Survival neighbors", controls.survival_mask, max_neighbors);
         ImGui::Checkbox("Aging states", &controls.aging_enabled);
         ImGui::BeginDisabled(!controls.aging_enabled);
         ImGui::SliderInt("Max aging stages", &controls.aging_stages, 1, SimulationControls::MAX_AGING_STAGES,
