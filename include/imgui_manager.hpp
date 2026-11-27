@@ -6,11 +6,7 @@
 #include "window.hpp"
 #include <iostream>
 
-struct UIControl
-{
-    bool show_demo_window = false;
-    bool set_fullscreen = false;
-};
+struct SimulationControls;
 
 class ImGuiManager
 {
@@ -21,7 +17,7 @@ class ImGuiManager
         Window* m_window = nullptr;
         ImDrawData* m_draw_data = nullptr;
         ImGui_ImplSDLGPU3_InitInfo m_init_info{};
-        UIControl m_ui_control;
+        bool m_backends_ready = false;
     private:
         void ShutdownBackends();
     public:
@@ -37,14 +33,13 @@ class ImGuiManager
         void CreateAndSetupContext();
         ImGuiIO* GetIO();
         void SetupScaling();
-        void SetupBackends();
+        bool SetupBackends();
         void LoadFonts(const char* font_path, float font_size);
         void ProcessEvent(SDL_Event* event);
         void BeginFrame();
-        void Build();
+        bool Build(SimulationControls& controls);
         void Prepare(SDL_GPUCommandBuffer* command);
         void Draw(SDL_GPURenderPass* render_pass, SDL_GPUCommandBuffer* command_buffer);
-        void ShowDemoWindow();
         void EndFrame();
         ImDrawData* GetDrawData();
 };

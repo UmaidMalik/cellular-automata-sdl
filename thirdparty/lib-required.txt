@@ -1,7 +1,2 @@
-requires source of
-glad
-imgui
-sdl
-
-clone here
-will automate this with cmake later, rather then pushing thirdparty libraries on GitHub here
+Place the SDL3 and Dear ImGui source checkouts here as SDL/ and imgui/.
+CMake builds both from source.

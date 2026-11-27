@@ -25,33 +25,17 @@ add_subdirectory(thirdparty/SDL)  # provides SDL3::SDL3-static
 # ImGui (SDL_GPU backends)
 add_library(imgui STATIC
     thirdparty/imgui/imgui.cpp
-    thirdparty/imgui/imgui_demo.cpp
     thirdparty/imgui/imgui_draw.cpp
     thirdparty/imgui/imgui_tables.cpp
     thirdparty/imgui/imgui_widgets.cpp
     thirdparty/imgui/backends/imgui_impl_sdl3.cpp
     thirdparty/imgui/backends/imgui_impl_sdlgpu3.cpp
-    #thirdparty/imgui/backends/imgui_impl_opengl3.cpp
 )
 target_include_directories(imgui PUBLIC
     thirdparty/imgui
     thirdparty/imgui/backends
 )
-# OpenGL + loader (GLAD) via FetchContent
-include(FetchContent)
-
-FetchContent_Declare(glad
-  URL https://github.com/Dav1dde/glad/archive/refs/tags/v0.1.36.zip
-)
-FetchContent_MakeAvailable(glad)   # provides target 'glad'
-
-# ImGui GL3 backend uses GLAD
-target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
-
-find_package(OpenGL REQUIRED)  # provides OpenGL::GL
-
-# ImGui needs SDL and glad headers during its own compilation
-target_link_libraries(imgui PUBLIC SDL3::SDL3-static glad)
+target_link_libraries(imgui PUBLIC SDL3::SDL3-static)
 
 # App sources/headers
 file(GLOB_RECURSE CA_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
@@ -76,7 +60,6 @@ source_group(TREE "${PROJECT_SOURCE_DIR}/include" FILES ${CA_PUB_HDR})
 # 🔗 Link libraries here (not in target_include_directories)
 target_link_libraries(CellularAutomata PRIVATE
     imgui
-    OpenGL::GL
 )
 
 if (WIN32)
@@ -88,3 +71,15 @@ elseif (UNIX)
     find_package(Threads REQUIRED)
     target_link_libraries(CellularAutomata PRIVATE dl Threads::Threads)
 endif()
+
+# Stage the checked-in SPIR-V files beside the executable for every build configuration.
+add_custom_target(cellular_automata_shaders ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:CellularAutomata>/shaders"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/build/grid_fullscreen_triangle.vert.spv"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/build/grid_sample_rgba8.frag.spv"
+        "${CMAKE_CURRENT_SOURCE_DIR}/shaders/build/update_r1.frag.spv"
+        "$<TARGET_FILE_DIR:CellularAutomata>/shaders"
+    VERBATIM
+)
+add_dependencies(CellularAutomata cellular_automata_shaders)
