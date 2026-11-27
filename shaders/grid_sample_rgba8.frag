@@ -10,8 +10,15 @@ layout(std140, set = 3, binding = 0) uniform View
 void main()
 {
     vec2 screen = vec2(vUV.x, 1.0 - vUV.y);
-    vec3 hsv = texture(uTex, U.viewport.xy + screen * U.viewport.z).rgb;
-    vec3 hue = abs(fract(hsv.x + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
-    vec3 rgb = hsv.z * mix(vec3(1.0), clamp(hue - 1.0, 0.0, 1.0), hsv.y);
-    outColor = vec4(rgb, 1.0);
+    vec3 color = texture(uTex, U.viewport.xy + screen * U.viewport.z).rgb;
+    if (color.b == 0.0)
+    {
+        outColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
+    vec2 direction = color.rg * 2.0 - 1.0;
+    float hue = atan(direction.y, direction.x) / 6.28318530718;
+    vec3 rgb = abs(fract(hue + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
+    outColor = vec4(color.b * clamp(rgb - 1.0, 0.0, 1.0), 1.0);
 }
