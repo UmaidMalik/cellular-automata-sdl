@@ -30,8 +30,12 @@ class ImGuiManager
         ImGui_ImplSDLGPU3_InitInfo m_init_info{};
 #endif
         bool m_backends_ready = false;
+        bool m_ui_hidden = false;
+        bool m_hide_shortcut_pending = false;
+        bool m_pause_shortcut_pending = false;
         bool m_mobile_settings_open = false;
         bool m_mobile_scroll_touch = false;
+        Uint64 m_hide_until = 0;
     private:
         void ShutdownBackends();
     public:

@@ -4,6 +4,14 @@
 
 using NeighborRule = std::array<unsigned int, 4>;
 
+enum class NeighborhoodShape : int
+{
+    Moore = 0,
+    VonNeumann = 1,
+    Circular = 2,
+    Hexagonal = 3
+};
+
 struct config
 {
     static constexpr int WINDOW_WIDTH = 1280;
@@ -28,6 +36,7 @@ struct SimulationControls
     static constexpr int MAX_BRUSH_SATURATION = 100;
 
     int neighbor_radius = 1;
+    NeighborhoodShape neighborhood_shape = NeighborhoodShape::Moore;
     bool aging_enabled = false;
     int aging_stages = 6;
     int grid_size = config::GRID_WIDTH;
