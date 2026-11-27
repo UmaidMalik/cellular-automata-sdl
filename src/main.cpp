@@ -163,6 +163,9 @@ SDL_AppResult Application::Frame()
         return SDL_APP_CONTINUE;
     }
 
+#ifdef __EMSCRIPTEN__
+    window.SyncBrowserCanvas();
+#endif
     imgui.BeginFrame();
     const float previous_zoom = view.zoom;
     const int previous_brush_size = controls.brush_size;

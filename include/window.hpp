@@ -25,6 +25,7 @@ class Window
         SDL_Window* GetSDLWindow() const;
 #ifdef __EMSCRIPTEN__
         SDL_GLContext GetGLContext() const;
+        void SyncBrowserCanvas();
 #else
         int CreateGPUDevice();
         SDL_GPUDevice* GetGPUDevice() const;
