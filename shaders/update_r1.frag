@@ -22,14 +22,29 @@ ivec2 samplePosition(ivec2 position)
                          : clamp(position, ivec2(0), size - 1);
 }
 
-// Alpha encodes dead as 0, alive as 1, and aging as remaining stages / 256.
-const float STATE_SCALE = 256.0;
+// RG stores hue direction, B stores brightness, and alpha packs cell state
+// (0 dead, 1–255 aging, 256 alive) above seven bits of saturation percent.
+const uint SATURATION_BITS = 7u;
+const uint SATURATION_MASK = (1u << SATURATION_BITS) - 1u;
 const int LIVE_STATE = 256;
+const float UNORM_MAX = 65535.0;
+const float LIVE_ALPHA = float(uint(LIVE_STATE) << SATURATION_BITS) / UNORM_MAX;
+
+uint readPackedState(float alpha)
+{
+    return uint(round(alpha * UNORM_MAX));
+}
+
+float packState(int state, uint saturation)
+{
+    return float((uint(state) << SATURATION_BITS) | saturation) / UNORM_MAX;
+}
 
 void main()
 {
     ivec2 position = ivec2(gl_FragCoord.xy);
     int neighbors = 0;
+    uint saturationSum = 0u;
     // RG stores a unit hue vector mapped from [-1, 1] to UNORM.
     vec2 hueSum = vec2(0.0);
     vec2 firstHue = vec2(1.0, 0.5); // Red if a B0 birth has no neighbors.
@@ -40,18 +55,21 @@ void main()
             if (dx == 0 && dy == 0)
                 continue;
             vec4 neighbor = texelFetch(uCurrent, samplePosition(position + ivec2(dx, dy)), 0);
-            if (neighbor.a == 1.0)
+            if (neighbor.a >= LIVE_ALPHA)
             {
                 if (neighbors == 0)
                     firstHue = neighbor.rg;
                 ++neighbors;
+                saturationSum += readPackedState(neighbor.a) & SATURATION_MASK;
                 hueSum += neighbor.rg * 2.0 - 1.0;
             }
         }
     }
 
     vec4 cell = texelFetch(uCurrent, position, 0);
-    int state = int(round(cell.a * STATE_SCALE));
+    uint packedState = readPackedState(cell.a);
+    int state = int(packedState >> SATURATION_BITS);
+    uint saturation = packedState & SATURATION_MASK;
     if (state != LIVE_STATE && U.agingStages == 0)
         state = 0;
     bool born = state == 0 && matchesRule(U.birthMask, neighbors);
@@ -60,7 +78,7 @@ void main()
     {
         // Round down to prevent small decay steps from getting stuck at a nonzero UNORM value.
         float value = floor(round(cell.b * 65535.0) * U.decay) / 65535.0;
-        outState = vec4(cell.rg, value, 0.0);
+        outState = vec4(cell.rg, value, packState(0, saturation));
         return;
     }
 
@@ -73,10 +91,15 @@ void main()
         float quantizationError = 2.0 * float(neighbors) / 65535.0;
         if (lengthSquared > quantizationError * quantizationError)
             hue = hueSum * inversesqrt(lengthSquared) * 0.5 + 0.5;
-        outState = vec4(hue, 1.0, 1.0);
+        if (born)
+        {
+            uint count = uint(neighbors);
+            saturation = count == 0u ? 100u : (saturationSum + count / 2u) / count;
+        }
+        outState = vec4(hue, 1.0, packState(LIVE_STATE, saturation));
         return;
     }
 
     int nextState = min(U.agingStages, state - 1);
-    outState = vec4(cell.rgb, float(nextState) / STATE_SCALE);
+    outState = vec4(cell.rgb, packState(nextState, saturation));
 }

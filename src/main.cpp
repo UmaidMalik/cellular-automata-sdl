@@ -227,7 +227,8 @@ int main()
                 for (int step = 0; step < steps; ++step)
                     automata.Step(commands, controls);
             }
-            if (!automata.Paint(commands, stroke, paint_hue, controls.brush_size, stroke_seed))
+            if (!automata.Paint(commands, stroke, paint_hue, controls.brush_saturation,
+                                controls.brush_size, stroke_seed))
             {
                 // A command buffer with an acquired swapchain must be submitted.
                 renderer.SubmitCommandBuffer();
@@ -237,7 +238,7 @@ int main()
             renderer.SetColorTargetInfo(math::RGBAColor(0.0f, 0.0f, 0.0f, 1.0f));
             renderer.BeginRenderPass();
             auto* pass = renderer.GetRenderPass();
-            automata.Draw(commands, pass, view, controls.color_saturation / 100.0f);
+            automata.Draw(commands, pass, view);
             imgui.Draw(pass, commands);
             renderer.EndRenderPass();
         }
