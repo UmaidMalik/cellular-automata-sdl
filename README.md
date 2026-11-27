@@ -45,7 +45,10 @@ generation. Rule changes apply on the next generation.
 **Rule preset** sets the birth and survival counts, aging stages, and
 neighborhood together. The panel displays the active rule and shows
 **Custom** whenever those settings differ from the named presets.
-The menu groups 41 presets into Life-like, Generations, Larger than Life, and Other neighborhoods.
+The menu groups 47 presets into Life-like, Generations, Larger than Life, and Other neighborhoods.
+Larger than Life includes nine presets with radii above one across Moore,
+Circular, and Hexagonal neighborhoods. Six use rules from
+[Golly's Larger-than-Life pattern collection](https://github.com/AlephAlpha/golly/tree/master/Patterns/Larger-than-Life).
 Circular Growth is a radius-three disk preset with birth counts 8–10 and
 survival counts 7–12.
 Presets come from [Cotronei's Life-like rule table](https://www.oldcitypublishing.com/wp-content/uploads/2025/07/JCAv16n3-4p239-310Cotronei.pdf)

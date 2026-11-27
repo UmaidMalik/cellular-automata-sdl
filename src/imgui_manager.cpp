@@ -270,8 +270,8 @@ void EditSimulationRule(SimulationControls& controls, bool mobile_layout)
         int previous_group = -1;
         for (const auto& preset : RULE_PRESETS)
         {
-            const int group = preset.shape != NeighborhoodShape::Moore ? 3
-                : preset.radius > 1 ? 2 : preset.aging_stages > 0 ? 1 : 0;
+            const int group = preset.radius > 1 ? 2
+                : preset.shape != NeighborhoodShape::Moore ? 3 : preset.aging_stages > 0 ? 1 : 0;
             if (group != previous_group)
             {
                 ImGui::SeparatorText(groups[group]);
