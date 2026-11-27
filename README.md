@@ -27,7 +27,8 @@ Visual Studio Debug build). CMake copies the SPIR-V shaders into the `shaders`
 folder beside the executable. The app requires an SDL GPU backend that
 supports SPIR-V, typically Vulkan.
 
-The Simulation panel lets you pause, advance one generation while paused,
+The Simulation panel keeps the FPS counter visible in its header. On mobile,
+it stays above the scrolling settings. The panel lets you pause, advance one generation while paused,
 toggle edge wrapping or fullscreen, and select the neighbor counts for birth
 and survival. Press **Esc** to exit fullscreen. The default is Conway's Game of Life (B3/S23), with two cell
 states. **Neighborhood** selects an odd square from 3x3 (8 neighbors) to

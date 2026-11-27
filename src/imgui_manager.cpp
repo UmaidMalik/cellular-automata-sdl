@@ -435,12 +435,16 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
         ? ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
         : ImGuiWindowFlags_AlwaysAutoResize;
-    bool show_controls = ImGui::Begin(mobile_layout ? "Mobile settings" : "Simulation", nullptr, flags);
+    const float fps = m_imgui_io->Framerate;
+    char desktop_title[64];
+    std::snprintf(desktop_title, sizeof(desktop_title), "Simulation  |  %.1f FPS###Simulation", fps);
+    bool show_controls = ImGui::Begin(mobile_layout ? "Mobile settings" : desktop_title, nullptr, flags);
     const bool settings_child = mobile_layout && show_controls;
     if (settings_child)
     {
         if (ImGui::Button("Close settings", ImVec2(-1.0f, 40.0f)))
             m_mobile_settings_open = false;
+        ImGui::Text("%.1f FPS", fps);
         ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 24.0f);
         show_controls = ImGui::BeginChild("Settings controls");
     }
@@ -516,7 +520,6 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
                          SimulationControls::MIN_BRUSH_SATURATION, SimulationControls::MAX_BRUSH_SATURATION,
                          "%d%%", ImGuiSliderFlags_AlwaysClamp);
         EditColorRetention(controls.color_decay, mobile_layout);
-        ImGui::Text("%.1f FPS", m_imgui_io->Framerate);
     }
     if (settings_child)
     {
