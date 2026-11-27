@@ -8,15 +8,37 @@
     html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: #fff; }
     canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; outline: none; touch-action: none; }
     canvas:fullscreen { width: 100vw !important; height: 100vh !important; height: 100dvh !important; margin: 0 !important; padding: 0 !important; }
+    #brush-toolbar {
+      display: none; position: fixed; left: 50%; bottom: max(8px, env(safe-area-inset-bottom));
+      transform: translateX(-50%); gap: 4px; padding: 4px; border: 1px solid #394452;
+      border-radius: 8px; background: #121820; z-index: 1;
+    }
+    @media (pointer: coarse), (orientation: portrait) {
+      #brush-toolbar:not([hidden]) { display: flex; }
+    }
+    #brush-toolbar button {
+      min-width: 72px; min-height: 44px; padding: 0 8px; border: 0; border-radius: 5px;
+      color: #f5f7fa; background: transparent; touch-action: manipulation; font: 14px system-ui, sans-serif;
+    }
+    #brush-toolbar button[aria-pressed="true"], #brush-toolbar button[aria-expanded="true"] {
+      background: #244b78;
+    }
     #status { position: fixed; inset: 1rem auto auto 1rem; font: 1rem system-ui, sans-serif; }
   </style>
 </head>
 <body>
   <canvas id="canvas" aria-label="Cellular Automata grid" tabindex="0"></canvas>
+  <nav id="brush-toolbar" aria-label="Brush controls" hidden>
+    <button type="button" data-action="1" aria-pressed="true">Draw</button>
+    <button type="button" data-action="2" aria-pressed="false">Erase</button>
+    <button type="button" data-action="3" aria-expanded="false">Settings</button>
+  </nav>
   <p id="status" role="status">Loading Cellular Automata…</p>
   <script>
     const canvas = document.getElementById("canvas");
     const statusMessage = document.getElementById("status");
+    const toolbar = document.getElementById("brush-toolbar");
+    const [drawButton, eraseButton, settingsButton] = toolbar.querySelectorAll("button");
     canvas.addEventListener("contextmenu", event => event.preventDefault());
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && document.fullscreenElement?.contains(canvas)) {
@@ -25,13 +47,30 @@
     });
     var Module = {
       canvas,
-      postRun: [() => { statusMessage.hidden = true; }],
+      postRun: [() => { statusMessage.hidden = true; toolbar.hidden = false; }],
       onAbort: () => { statusMessage.textContent = "Cellular Automata could not start. Check that WebGL 2 is available."; },
       onExit: (code) => {
         if (code !== 0) {
           statusMessage.hidden = false;
           statusMessage.textContent = "Cellular Automata could not start. Check that WebGL 2 is available.";
         }
+      }
+    };
+    toolbar.addEventListener("click", event => {
+      const button = event.target.closest("button[data-action]");
+      if (button) Module.mobileToolbarAction = Number(button.dataset.action);
+    });
+    let currentErase = false;
+    let currentSettings = false;
+    Module.syncMobileToolbar = (erase, settingsOpen) => {
+      if (erase !== currentErase) {
+        drawButton.setAttribute("aria-pressed", String(!erase));
+        eraseButton.setAttribute("aria-pressed", String(erase));
+        currentErase = erase;
+      }
+      if (settingsOpen !== currentSettings) {
+        settingsButton.setAttribute("aria-expanded", String(settingsOpen));
+        currentSettings = settingsOpen;
       }
     };
     const notifyCanvasResize = () => {

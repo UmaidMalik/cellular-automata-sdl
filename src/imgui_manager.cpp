@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "grid_view.hpp"
+#include "rule_presets.hpp"
 #include "imgui_manager.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -14,6 +15,7 @@
 #include <cmath>
 #include <cstdio>
 #include <iostream>
+#include <string>
 
 ImGuiManager::ImGuiManager(Window* window) 
     : m_window(window)
@@ -187,12 +189,13 @@ void ImGuiManager::BeginFrame()
 
 namespace
 {
-void EditRule(const char* label, NeighborRule& mask, int max_neighbors)
+void EditRule(const char* label, NeighborRule& mask, int max_neighbors, bool mobile_layout)
 {
     ImGui::TextUnformatted(label);
     ImGui::PushID(label);
 
-    const bool scroll = max_neighbors > 8;
+    const bool scroll = !mobile_layout && max_neighbors > 8;
+    const bool table = scroll || mobile_layout;
     if (scroll)
     {
         const float row_height = ImGui::GetFrameHeightWithSpacing();
@@ -200,11 +203,11 @@ void EditRule(const char* label, NeighborRule& mask, int max_neighbors)
                           ImGuiChildFlags_Borders);
     }
 
-    if (!scroll || ImGui::BeginTable("Counts", 8, ImGuiTableFlags_SizingStretchSame))
+    if (!table || ImGui::BeginTable("Counts", mobile_layout ? 6 : 8, ImGuiTableFlags_SizingStretchSame))
     {
         for (int count = 0; count <= max_neighbors; ++count)
         {
-            if (scroll)
+            if (table)
                 ImGui::TableNextColumn();
             else if (count > 0)
                 ImGui::SameLine();
@@ -213,7 +216,7 @@ void EditRule(const char* label, NeighborRule& mask, int max_neighbors)
             std::snprintf(text, sizeof(text), "%d", count);
             ImGui::CheckboxFlags(text, &mask[count / 32], 1u << (count % 32));
         }
-        if (scroll)
+        if (table)
             ImGui::EndTable();
     }
 
@@ -222,7 +225,118 @@ void EditRule(const char* label, NeighborRule& mask, int max_neighbors)
     ImGui::PopID();
 }
 
-void EditColorRetention(float& retention)
+std::string DescribeRuleCounts(const NeighborRule& mask, int max_count)
+{
+    std::string text;
+    for (int first = 0; first <= max_count; ++first)
+    {
+        if (!RuleHasCount(mask, first))
+            continue;
+
+        int last = first;
+        while (last < max_count && RuleHasCount(mask, last + 1))
+            ++last;
+        if (!text.empty())
+            text += ", ";
+        text += std::to_string(first);
+        if (last > first)
+        {
+            text += "-";
+            text += std::to_string(last);
+        }
+        first = last;
+    }
+    return text.empty() ? "none" : text;
+}
+
+void EditSimulationRule(SimulationControls& controls, bool mobile_layout)
+{
+    const auto* active = FindActiveRulePreset(controls);
+    if (ImGui::BeginCombo("Rule preset", active ? active->name : "Custom"))
+    {
+        for (const auto& preset : RULE_PRESETS)
+        {
+            const bool selected = &preset == active;
+            if (ImGui::Selectable(preset.name, selected))
+                ApplyRulePreset(controls, preset);
+            if (selected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+
+    const int width = NeighborhoodWidth(controls.neighbor_radius);
+    const int max_count = NeighborhoodMaxCount(controls.neighbor_radius);
+    ImGui::TextWrapped("Birth (B): %s   Survival (S): %s",
+        DescribeRuleCounts(controls.birth_mask, max_count).c_str(),
+        DescribeRuleCounts(controls.survival_mask, max_count).c_str());
+    if (controls.aging_enabled)
+        ImGui::Text("%d x %d Moore | Aging on, max %d", width, width, controls.aging_stages);
+    else
+        ImGui::Text("%d x %d Moore | Aging off", width, width);
+
+    if (mobile_layout && !ImGui::CollapsingHeader("Customize rule"))
+        return;
+
+    const char* const neighborhoods[]{"3 x 3", "5 x 5", "7 x 7", "9 x 9", "11 x 11"};
+    static_assert(IM_ARRAYSIZE(neighborhoods) == SimulationControls::MAX_NEIGHBOR_RADIUS);
+    int neighborhood = controls.neighbor_radius - 1;
+    if (ImGui::Combo("Neighborhood", &neighborhood, neighborhoods, IM_ARRAYSIZE(neighborhoods)))
+        controls.neighbor_radius = neighborhood + 1;
+    const int editable_count = NeighborhoodMaxCount(controls.neighbor_radius);
+    EditRule("Birth neighbors", controls.birth_mask, editable_count, mobile_layout);
+    EditRule("Survival neighbors", controls.survival_mask, editable_count, mobile_layout);
+    ImGui::Checkbox("Aging states", &controls.aging_enabled);
+    ImGui::BeginDisabled(!controls.aging_enabled);
+    ImGui::SliderInt("Max aging stages", &controls.aging_stages, 1, SimulationControls::MAX_AGING_STAGES,
+                     "%d", ImGuiSliderFlags_AlwaysClamp);
+    ImGui::EndDisabled();
+}
+
+void EditBrushHue(SimulationControls& controls)
+{
+    ImGui::BeginDisabled(controls.random_brush_hue);
+    ImGui::Text("Brush hue %.2f", controls.brush_hue);
+    ImGui::SameLine();
+    const float saturation = controls.brush_saturation / 100.0f;
+    const auto hue_color = [saturation](float hue) {
+        ImVec4 color(0.0f, 0.0f, 0.0f, 1.0f);
+        ImGui::ColorConvertHSVtoRGB(hue, saturation, 1.0f, color.x, color.y, color.z);
+        return color;
+    };
+    ImGui::ColorButton("##brush-color", hue_color(controls.brush_hue),
+                       ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoDragDrop,
+                       ImVec2(ImGui::GetTextLineHeight(), ImGui::GetTextLineHeight()));
+
+    ImGui::SetNextItemWidth(-1.0f);
+    const ImVec2 start = ImGui::GetCursorScreenPos();
+    const float width = ImGui::CalcItemWidth();
+    const float height = ImGui::GetFrameHeight();
+    constexpr int segments = 6;
+    for (int i = 0; i < segments; ++i)
+    {
+        const float left = static_cast<float>(i) / segments;
+        const float right = static_cast<float>(i + 1) / segments;
+        const ImU32 left_color = ImGui::GetColorU32(hue_color(left));
+        const ImU32 right_color = ImGui::GetColorU32(hue_color(right));
+        ImGui::GetWindowDrawList()->AddRectFilledMultiColor(
+            ImVec2(start.x + width * left, start.y),
+            ImVec2(start.x + width * right, start.y + height),
+            left_color, right_color, right_color, left_color);
+    }
+
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, IM_COL32(30, 30, 30, 255));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, IM_COL32(0, 0, 0, 255));
+    ImGui::SliderFloat("##brush-hue", &controls.brush_hue, 0.0f, 1.0f, "",
+                       ImGuiSliderFlags_NoInput | ImGuiSliderFlags_AlwaysClamp);
+    ImGui::PopStyleColor(5);
+    ImGui::EndDisabled();
+}
+
+void EditColorRetention(float& retention, bool mobile_layout)
 {
     // V scales by retention each generation, so trail length is sensitive to
     // tiny changes near 1. Space the brightness loss (1 - retention) logarithmically.
@@ -230,13 +344,19 @@ void EditColorRetention(float& retention)
     const float log_range = std::log1p(loss_scale);
     float position = 1.0f - std::log1p(loss_scale * (1.0f - retention)) / log_range;
 
-    if (ImGui::SliderFloat("Color retention", &position, 0.0f, 1.0f, "",
+    if (mobile_layout)
+    {
+        ImGui::TextUnformatted("Color retention");
+        ImGui::SetNextItemWidth(-1.0f);
+    }
+    if (ImGui::SliderFloat(mobile_layout ? "##retention" : "Color retention", &position, 0.0f, 1.0f, "",
                            ImGuiSliderFlags_NoInput | ImGuiSliderFlags_NoRoundToFormat))
     {
         retention = std::clamp(
             1.0f - std::expm1((1.0f - position) * log_range) / std::expm1(log_range), 0.0f, 1.0f);
     }
-    ImGui::SameLine();
+    if (!mobile_layout)
+        ImGui::SameLine();
     ImGui::Text("%.4f (%.2f%%)", retention, 100.0f * retention);
 }
 }
@@ -245,30 +365,78 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
                                      SDL_Point grid, bool resize_failed)
 {
     auto action = SimulationAction::None;
-#ifdef __EMSCRIPTEN__
     const ImVec2 screen = m_imgui_io->DisplaySize;
+    bool mobile_layout = false;
+#ifdef __EMSCRIPTEN__
     static const bool touch_device = EM_ASM_INT({ return matchMedia("(pointer: coarse)").matches; });
-    if (touch_device || screen.y > screen.x)
+    mobile_layout = touch_device || screen.y > screen.x;
+    if (mobile_layout)
     {
-        // Keep the grid accessible and provide a touch target for each mode.
-        ImGui::SetNextWindowPos(ImVec2(8.0f, screen.y - 8.0f), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
-        if (ImGui::Begin("Brush mode", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
-                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize))
+        constexpr float margin = 8.0f;
+        const int toolbar_action = EM_ASM_INT({
+            const pending = Module['mobileToolbarAction'] || 0;
+            Module['mobileToolbarAction'] = 0;
+            return pending;
+        });
+        if (toolbar_action == 1)
+            controls.erase_brush = false;
+        else if (toolbar_action == 2)
+            controls.erase_brush = true;
+        else if (toolbar_action == 3)
+            m_mobile_settings_open = !m_mobile_settings_open;
+
+        // The browser shows only the fullscreen canvas. Keep equivalent
+        // controls inside it when the HTML toolbar is outside that surface.
+        if (EM_ASM_INT({ return document.fullscreenElement === Module.canvas; }))
         {
-            if (ImGui::Selectable("Draw", !controls.erase_brush, 0, ImVec2(64.0f, 32.0f)))
-                controls.erase_brush = false;
-            ImGui::SameLine();
-            if (ImGui::Selectable("Erase", controls.erase_brush, 0, ImVec2(64.0f, 32.0f)))
-                controls.erase_brush = true;
+            ImGui::SetNextWindowPos(ImVec2(screen.x * 0.5f, screen.y - margin),
+                                    ImGuiCond_Always, ImVec2(0.5f, 1.0f));
+            if (ImGui::Begin("Fullscreen brush toolbar", nullptr,
+                             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                const ImVec2 touch_target{76.0f, 40.0f};
+                if (ImGui::Selectable("Draw", !controls.erase_brush, 0, touch_target))
+                    controls.erase_brush = false;
+                ImGui::SameLine();
+                if (ImGui::Selectable("Erase", controls.erase_brush, 0, touch_target))
+                    controls.erase_brush = true;
+                ImGui::SameLine();
+                if (ImGui::Button(m_mobile_settings_open ? "Close" : "Settings", touch_target))
+                    m_mobile_settings_open = !m_mobile_settings_open;
+            }
+            ImGui::End();
         }
-        ImGui::End();
-        ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowCollapsed(true, ImGuiCond_Once);
-        ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f),
-            ImVec2(std::max(1.0f, screen.x - 16.0f), std::max(1.0f, screen.y - 64.0f)));
+
+        EM_ASM({
+            if (Module['syncMobileToolbar'])
+                Module['syncMobileToolbar'](!!$0, !!$1);
+        }, controls.erase_brush ? 1 : 0, m_mobile_settings_open ? 1 : 0);
+
+        if (!m_mobile_settings_open)
+            return action;
+
+        ImGui::SetNextWindowPos(ImVec2(margin, margin), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(std::clamp(screen.x - 2.0f * margin, 1.0f, 460.0f),
+                                       std::max(1.0f, screen.y - 82.0f)), ImGuiCond_Always);
     }
 #endif
-    if (ImGui::Begin("Simulation", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+
+    const ImGuiWindowFlags flags = mobile_layout
+        ? ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
+        : ImGuiWindowFlags_AlwaysAutoResize;
+    bool show_controls = ImGui::Begin(mobile_layout ? "Mobile settings" : "Simulation", nullptr, flags);
+    const bool settings_child = mobile_layout && show_controls;
+    if (settings_child)
+    {
+        if (ImGui::Button("Close settings", ImVec2(-1.0f, 40.0f)))
+            m_mobile_settings_open = false;
+        ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 24.0f);
+        show_controls = ImGui::BeginChild("Settings controls");
+    }
+
+    if (show_controls)
     {
         ImGui::Checkbox("Paused", &controls.paused);
         ImGui::SameLine();
@@ -291,20 +459,7 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
         if (ImGui::Checkbox("Fullscreen", &fullscreen))
             m_window->SetFullscreen(fullscreen);
 
-        const char* const neighborhoods[]{"3 x 3", "5 x 5", "7 x 7", "9 x 9", "11 x 11"};
-        static_assert(IM_ARRAYSIZE(neighborhoods) == SimulationControls::MAX_NEIGHBOR_RADIUS);
-        int neighborhood = controls.neighbor_radius - 1;
-        if (ImGui::Combo("Neighborhood", &neighborhood, neighborhoods, IM_ARRAYSIZE(neighborhoods)))
-            controls.neighbor_radius = neighborhood + 1;
-        const int width = controls.neighbor_radius * 2 + 1;
-        const int max_neighbors = width * width - 1;
-        EditRule("Birth neighbors", controls.birth_mask, max_neighbors);
-        EditRule("Survival neighbors", controls.survival_mask, max_neighbors);
-        ImGui::Checkbox("Aging states", &controls.aging_enabled);
-        ImGui::BeginDisabled(!controls.aging_enabled);
-        ImGui::SliderInt("Max aging stages", &controls.aging_stages, 1, SimulationControls::MAX_AGING_STAGES,
-                         "%d", ImGuiSliderFlags_AlwaysClamp);
-        ImGui::EndDisabled();
+        EditSimulationRule(controls, mobile_layout);
         if (ImGui::BeginCombo("Aspect ratio", GRID_ASPECT_RATIOS[aspect_index].label))
         {
             for (int index = 0; index < IM_ARRAYSIZE(GRID_ASPECT_RATIOS); ++index)
@@ -347,15 +502,32 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
         ImGui::Checkbox("Scale brush with zoom", &controls.sync_brush_with_zoom);
         ImGui::SetItemTooltip("Keep the brush diameter roughly constant on screen while zooming.");
         ImGui::Checkbox("Random hue per stroke", &controls.random_brush_hue);
-        ImGui::BeginDisabled(controls.random_brush_hue);
-        ImGui::SliderFloat("Brush hue", &controls.brush_hue, 0.0f, 1.0f, "%.2f",
-                           ImGuiSliderFlags_AlwaysClamp);
-        ImGui::EndDisabled();
+        EditBrushHue(controls);
         ImGui::SliderInt("Brush saturation", &controls.brush_saturation,
                          SimulationControls::MIN_BRUSH_SATURATION, SimulationControls::MAX_BRUSH_SATURATION,
                          "%d%%", ImGuiSliderFlags_AlwaysClamp);
-        EditColorRetention(controls.color_decay);
+        EditColorRetention(controls.color_decay, mobile_layout);
         ImGui::Text("%.1f FPS", m_imgui_io->Framerate);
+    }
+    if (settings_child)
+    {
+        const auto& io = *m_imgui_io;
+        if (io.MouseSource != ImGuiMouseSource_TouchScreen || !ImGui::IsMouseDown(ImGuiMouseButton_Left))
+            m_mobile_scroll_touch = false;
+        else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        {
+            m_mobile_scroll_touch = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) &&
+                                    !ImGui::IsAnyItemActive();
+        }
+
+        if (m_mobile_scroll_touch && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+        {
+            const auto drag = ImGui::GetMouseDragDelta();
+            if (std::abs(drag.y) > std::abs(drag.x))
+                ImGui::SetScrollY(ImGui::GetScrollY() - io.MouseDelta.y);
+        }
+        ImGui::EndChild();
+        ImGui::PopStyleVar();
     }
     ImGui::End();
     return action;
