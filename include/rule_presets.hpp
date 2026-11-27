@@ -68,10 +68,19 @@ inline constexpr RulePreset RULE_PRESETS[]{
     // Convert center-inclusive survival ranges. Majority's birth range tops out at 80 neighbors.
     {"Majority", RuleRange(41, 80), RuleRange(40, 80), 4, 0},
     {"Bosco's Rule", RuleRange(34, 45), RuleRange(33, 57), 5, 0},
+    // Rule settings from Golly's Larger-than-Life pattern headers.
+    {"Bosco Analogue", RuleRange(31, 42), RuleRange(33, 52), 5, 0},
+    {"Butterfly", RuleRange(31, 45), RuleRange(33, 51), 5, 0},
+    {"Jitterbug", RuleRange(22, 31), RuleRange(23, 37), 4, 0},
+    {"Quadratic Replicating Bug", RuleRange(14, 18), RuleRange(14, 23), 3, 0},
+    {"Slow Backrake", RuleRange(8, 9), RuleRange(13, 25), 3, 0},
+    {"Six Bees", RuleRange(26, 33),
+     RuleMask({26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 57}),
+     5, 0, NeighborhoodShape::Hexagonal},
+    {"Circular Growth", RuleRange(8, 10), RuleRange(7, 12), 3, 0, NeighborhoodShape::Circular},
     {"Gnarl", RuleMask({1}), RuleMask({0}), 1, 0, NeighborhoodShape::VonNeumann},
     {"B13/S012V", RuleMask({1, 3}), RuleMask({0, 1, 2}), 1, 0, NeighborhoodShape::VonNeumann},
     {"B2/S013V", RuleMask({2}), RuleMask({0, 1, 3}), 1, 0, NeighborhoodShape::VonNeumann},
-    {"Circular Growth", RuleRange(8, 10), RuleRange(7, 12), 3, 0, NeighborhoodShape::Circular},
     {"B245/S3H", RuleMask({2, 4, 5}), RuleMask({3}), 1, 0, NeighborhoodShape::Hexagonal},
 };
 
