@@ -10,6 +10,13 @@
 #include <span>
 #include <vector>
 
+enum class BrushMode
+{
+    Random,
+    Solid,
+    Erase
+};
+
 using BrushTexel = std::array<uint16_t, 4>;
 // Match update_r1.frag: alpha stores a nine-bit state and seven-bit saturation.
 constexpr uint16_t LIVE_CELL_STATE = 256;
@@ -101,12 +108,12 @@ inline BrushTexel MakeBrushTexel(float hue, int saturation)
     };
 }
 
-inline void FillBrushRow(BrushTexel* pixels, const BrushRow& row, Uint32 seed, BrushTexel alive)
+inline void FillBrushRow(BrushTexel* pixels, const BrushRow& row, Uint32 seed, BrushTexel alive, BrushMode mode)
 {
     constexpr BrushTexel dead{};
-    if (alive[3] == 0)
+    if (mode != BrushMode::Random)
     {
-        std::fill_n(pixels, row.Width(), dead);
+        std::fill_n(pixels, row.Width(), mode == BrushMode::Solid ? alive : dead);
         return;
     }
     for (int x = row.left; x < row.right; ++x)

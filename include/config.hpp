@@ -31,11 +31,12 @@ struct SimulationControls
     bool aging_enabled = false;
     int aging_stages = 6;
     int grid_size = config::GRID_WIDTH;
-    int brush_size = 1;
+    int brush_size = 12;
     bool erase_brush = false;
+    bool solid_brush = false;
     bool sync_brush_with_zoom = true;
     int generations_per_second = 60;
-    bool paused = true;
+    bool paused = false;
     bool pause_on_draw = false;
     bool wrap_edges = true;
     bool random_brush_hue = true;

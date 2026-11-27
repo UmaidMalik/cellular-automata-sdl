@@ -12,6 +12,7 @@
 #include "renderer.hpp"
 #endif
 #include <memory>
+#include "brush.hpp"
 #include "config.hpp"
 #include "event_handler.hpp"
 #include "grid_view.hpp"
@@ -408,7 +409,6 @@ SDL_AppResult Application::Frame()
         if (reset_pending)
         {
             automata.Clear(commands);
-            controls.paused = true;
             reset_pending = false;
             stroke.clear();
             previous_cell.reset();
@@ -424,8 +424,10 @@ SDL_AppResult Application::Frame()
             for (int step = 0; step < steps; ++step)
                 automata.Step(commands, controls);
         }
+        const BrushMode brush_mode = erase ? BrushMode::Erase :
+            (controls.solid_brush ? BrushMode::Solid : BrushMode::Random);
         if (!automata.Paint(commands, stroke, paint_hue, controls.brush_saturation,
-                            controls.brush_size, stroke_seed, erase))
+                            controls.brush_size, stroke_seed, brush_mode))
         {
 #ifndef __EMSCRIPTEN__
             // A command buffer with an acquired swapchain must be submitted.

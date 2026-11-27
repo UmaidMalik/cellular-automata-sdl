@@ -278,10 +278,7 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
         ImGui::EndDisabled();
         ImGui::SameLine();
         if (ImGui::Button("Reset"))
-        {
-            controls.paused = true;
             action = SimulationAction::Reset;
-        }
 
         ImGui::Checkbox("Pause on draw", &controls.pause_on_draw);
         ImGui::SetItemTooltip("Pause automatic generations while painting.");
@@ -342,6 +339,8 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
         ImGui::SliderInt("Brush size", &controls.brush_size, 1, SimulationControls::MAX_BRUSH_SIZE,
                          "%d cells", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
         ImGui::SetItemTooltip("Shift + scroll over the grid to resize the brush.");
+        ImGui::Checkbox("Solid brush", &controls.solid_brush);
+        ImGui::SetItemTooltip("Fill the circle with live cells. When off, each cell is randomly set alive or dead.");
         ImGui::Checkbox("Erase brush", &controls.erase_brush);
         ImGui::SameLine();
         ImGui::TextWrapped("Hold X while drawing to erase.");

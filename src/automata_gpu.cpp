@@ -160,7 +160,7 @@ void AutomataGpu::Clear(SDL_GPUCommandBuffer* commands)
 }
 
 bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> stroke,
-                        float hue, int saturation, int size, Uint32 seed, bool erase)
+                        float hue, int saturation, int size, Uint32 seed, BrushMode mode)
 {
     if (stroke.empty())
         return true;
@@ -201,9 +201,9 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
     if (!data)
         return false;
 
-    const auto alive = erase ? BrushTexel{} : MakeBrushTexel(hue, saturation);
+    const auto alive = mode == BrushMode::Erase ? BrushTexel{} : MakeBrushTexel(hue, saturation);
     for (const auto& upload : uploads)
-        FillBrushRow(data + upload.offset / sizeof(BrushTexel), upload.bounds, seed, alive);
+        FillBrushRow(data + upload.offset / sizeof(BrushTexel), upload.bounds, seed, alive, mode);
     SDL_UnmapGPUTransferBuffer(m_device, m_brush);
 
     auto* pass = SDL_BeginGPUCopyPass(commands);

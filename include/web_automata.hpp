@@ -6,6 +6,7 @@
 #include <array>
 #include <span>
 
+enum class BrushMode;
 struct GridView;
 struct SimulationControls;
 
@@ -18,7 +19,7 @@ public:
     void Clear(SDL_GPUCommandBuffer*);
     void Step(SDL_GPUCommandBuffer*, const SimulationControls& controls);
     bool Paint(SDL_GPUCommandBuffer*, std::span<const SDL_Point> stroke,
-               float hue, int saturation, int size, Uint32 seed, bool erase);
+               float hue, int saturation, int size, Uint32 seed, BrushMode mode);
     void Draw(const SDL_Rect& viewport, int pixel_height, const GridView& view);
 
 private:

@@ -188,20 +188,20 @@ void WebAutomata::Step(SDL_GPUCommandBuffer*, const SimulationControls& controls
 }
 
 bool WebAutomata::Paint(SDL_GPUCommandBuffer*, std::span<const SDL_Point> stroke,
-                       float hue, int saturation, int size, Uint32 seed, bool erase)
+                       float hue, int saturation, int size, Uint32 seed, BrushMode mode)
 {
     if (stroke.empty())
         return true;
 
     glBindTexture(GL_TEXTURE_2D, m_textures[m_current]);
-    const auto alive = erase ? BrushTexel{} : MakeBrushTexel(hue, saturation);
+    const auto alive = mode == BrushMode::Erase ? BrushTexel{} : MakeBrushTexel(hue, saturation);
     std::vector<BrushTexel> pixels;
     for (const auto& row : RasterizeBrush(stroke, size, m_width, m_height))
     {
         if (row.Width() <= 0)
             continue;
         pixels.resize(row.Width());
-        FillBrushRow(pixels.data(), row, seed, alive);
+        FillBrushRow(pixels.data(), row, seed, alive, mode);
         glTexSubImage2D(GL_TEXTURE_2D, 0, row.left, row.y, row.Width(), 1,
                         GL_RGBA_INTEGER, GL_UNSIGNED_SHORT, pixels.data());
     }

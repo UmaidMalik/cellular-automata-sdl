@@ -6,6 +6,7 @@
 
 struct SimulationControls;
 
+enum class BrushMode;
 struct GridView;
 
 class AutomataGpu
@@ -21,7 +22,7 @@ public:
     bool Resize(int width, int height);
     void Clear(SDL_GPUCommandBuffer* commands);
     void Step(SDL_GPUCommandBuffer* commands, const SimulationControls& controls);
-    bool Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> stroke, float hue, int saturation, int size, Uint32 seed, bool erase);
+    bool Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> stroke, float hue, int saturation, int size, Uint32 seed, BrushMode mode);
     void Draw(SDL_GPUCommandBuffer* commands, SDL_GPURenderPass* pass, const GridView& view) const;
 
 private:
