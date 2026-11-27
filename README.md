@@ -16,7 +16,11 @@ cmake --build build-linux
 
 ## Running the simulation
 
-![Cellular Automata running with colored cell patterns drawn on the grid](docs/simulation.png)
+![Dense rings of Conway's Game of Life cells blending from blue to green and orange, with fading trails and the Simulation settings visible](docs/simulation.png)
+
+Conway's Game of Life on an 8,290 × 4,836 grid. Colors blend where live
+populations meet, and dead cells leave trails at 98.61% brightness retention
+per generation.
 
 Launch `CellularAutomata` from the build output (`build/bin/Debug` for the
 Visual Studio Debug build). CMake copies the SPIR-V shaders into the `shaders`
