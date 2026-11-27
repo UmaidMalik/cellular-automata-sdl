@@ -4,6 +4,7 @@
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
 #include "imgui_impl_opengl3.h"
 #else
 #include "imgui_impl_sdlgpu3.h"
@@ -240,9 +241,33 @@ void EditColorRetention(float& retention)
 }
 }
 
-SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom)
+SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, int& aspect_index,
+                                     SDL_Point grid, bool resize_failed)
 {
     auto action = SimulationAction::None;
+#ifdef __EMSCRIPTEN__
+    const ImVec2 screen = m_imgui_io->DisplaySize;
+    static const bool touch_device = EM_ASM_INT({ return matchMedia("(pointer: coarse)").matches; });
+    if (touch_device || screen.y > screen.x)
+    {
+        // Keep the grid accessible and provide a touch target for each mode.
+        ImGui::SetNextWindowPos(ImVec2(8.0f, screen.y - 8.0f), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
+        if (ImGui::Begin("Brush mode", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            if (ImGui::Selectable("Draw", !controls.erase_brush, 0, ImVec2(64.0f, 32.0f)))
+                controls.erase_brush = false;
+            ImGui::SameLine();
+            if (ImGui::Selectable("Erase", controls.erase_brush, 0, ImVec2(64.0f, 32.0f)))
+                controls.erase_brush = true;
+        }
+        ImGui::End();
+        ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_Appearing);
+        ImGui::SetNextWindowCollapsed(true, ImGuiCond_Once);
+        ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f),
+            ImVec2(std::max(1.0f, screen.x - 16.0f), std::max(1.0f, screen.y - 64.0f)));
+    }
+#endif
     if (ImGui::Begin("Simulation", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::Checkbox("Paused", &controls.paused);
@@ -283,11 +308,43 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom)
         ImGui::SliderInt("Max aging stages", &controls.aging_stages, 1, SimulationControls::MAX_AGING_STAGES,
                          "%d", ImGuiSliderFlags_AlwaysClamp);
         ImGui::EndDisabled();
+        if (ImGui::BeginCombo("Aspect ratio", GRID_ASPECT_RATIOS[aspect_index].label))
+        {
+            for (int index = 0; index < IM_ARRAYSIZE(GRID_ASPECT_RATIOS); ++index)
+            {
+                const bool selected = index == aspect_index;
+                if (ImGui::Selectable(GRID_ASPECT_RATIOS[index].label, selected))
+                    aspect_index = index;
+                if (selected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SliderInt("Grid size", &controls.grid_size, SimulationControls::MIN_GRID_SIZE,
+                         SimulationControls::MAX_GRID_SIZE, "%d cells on long side", ImGuiSliderFlags_AlwaysClamp);
+        const auto grid_target = GridSizeForAspect(controls.grid_size, GRID_ASPECT_RATIOS[aspect_index],
+            {static_cast<int>(m_imgui_io->DisplaySize.x), static_cast<int>(m_imgui_io->DisplaySize.y)});
+        ImGui::Text("Grid: %d x %d cells", grid.x, grid.y);
+        ImGui::BeginDisabled(grid_target.x == grid.x && grid_target.y == grid.y);
+        if (ImGui::Button("Apply grid size"))
+            action = SimulationAction::ResizeGrid;
+        ImGui::EndDisabled();
+        if (grid_target.x != grid.x || grid_target.y != grid.y)
+        {
+            ImGui::SameLine();
+            ImGui::TextWrapped("%d x %d cells", grid_target.x, grid_target.y);
+        }
+        if (resize_failed)
+            ImGui::TextWrapped("Could not resize the grid. Try a smaller size.");
+
         ImGui::SliderFloat("Zoom", &zoom, GridView::MIN_ZOOM, GridView::MAX_ZOOM,
                            "%.1fx", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
         ImGui::SliderInt("Brush size", &controls.brush_size, 1, SimulationControls::MAX_BRUSH_SIZE,
                          "%d cells", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
         ImGui::SetItemTooltip("Shift + scroll over the grid to resize the brush.");
+        ImGui::Checkbox("Erase brush", &controls.erase_brush);
+        ImGui::SameLine();
+        ImGui::TextWrapped("Hold X while drawing to erase.");
         ImGui::Checkbox("Scale brush with zoom", &controls.sync_brush_with_zoom);
         ImGui::SetItemTooltip("Keep the brush diameter roughly constant on screen while zooming.");
         ImGui::Checkbox("Random hue per stroke", &controls.random_brush_hue);

@@ -23,7 +23,7 @@ supports SPIR-V, typically Vulkan.
 
 The Simulation panel lets you pause, advance one generation while paused,
 toggle edge wrapping or fullscreen, and select the neighbor counts for birth
-and survival. The default is Conway's Game of Life (B3/S23), with two cell
+and survival. Press **Esc** to exit fullscreen. The default is Conway's Game of Life (B3/S23), with two cell
 states. **Neighborhood** selects an odd square from 3x3 (8 neighbors) to
 11x11 (120 neighbors). The center cell is excluded. Birth and survival
 settings for larger counts are remembered when you switch to a smaller
@@ -46,12 +46,21 @@ painted cells from 25% to 100%. Existing cells keep their saturation when
 the slider changes. A birth inherits the average saturation of its live
 neighbors.
 
-The grid starts empty and paused at 4x zoom so individual cells are visible.
-Hold the left mouse button and drag to paint living cells. **Brush size**
+The grid starts empty and paused at 4x zoom or closer on narrow screens so
+individual cells are visible.
+Hold the left mouse button and drag to paint living cells. Hold **X** while
+drawing to erase, or toggle **Erase brush**. The touch browser layout
+provides **Draw** and **Erase** buttons. Use **Aspect ratio** to choose a viewport preset or **Auto (fit window)** to
+follow the current window size. The default is 16:9. Other ratios crop the
+visible grid while keeping cells square. **Grid size** sets the length of
+the longer side from 128 to 3200 cells. The other side follows the selected
+aspect ratio. **Apply grid size** preserves the overlapping center of the
+grid, clears newly added space, and drops any cells outside the new edges.
+**Brush size**
 sets the circular brush diameter from 1 to 500 cells on a logarithmic scale.
-Hold Shift while scrolling over the grid to resize it. Enable **Scale brush
-with zoom** to keep its apparent size roughly constant when zooming. The
-brush is still limited to 1–500 cells. Each cell whose center is inside or
+Hold Shift while scrolling over the grid to resize it. The **Scale brush
+with zoom** (on by default) keeps the brush's apparent size roughly constant
+when zooming. The brush is still limited to 1–500 cells. Each cell whose center is inside or
 on the circle is randomly set alive or dead, with an even chance of either.
 **Random hue per
 stroke** picks a different color for every drag. Turn it off to use **Brush

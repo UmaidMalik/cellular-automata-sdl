@@ -104,6 +104,11 @@ inline BrushTexel MakeBrushTexel(float hue, int saturation)
 inline void FillBrushRow(BrushTexel* pixels, const BrushRow& row, Uint32 seed, BrushTexel alive)
 {
     constexpr BrushTexel dead{};
+    if (alive[3] == 0)
+    {
+        std::fill_n(pixels, row.Width(), dead);
+        return;
+    }
     for (int x = row.left; x < row.right; ++x)
         pixels[x - row.left] = BrushCellIsAlive(seed, x, row.y) ? alive : dead;
 }

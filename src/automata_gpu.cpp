@@ -6,6 +6,7 @@
 #include "shader_loader.hpp"
 
 #include <SDL3/SDL.h>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -13,6 +14,17 @@ namespace
 {
 // Align both row pitch and source offset for SDL GPU backends such as D3D12.
 constexpr Uint32 BRUSH_ROW_ALIGNMENT = 512;
+constexpr auto STATE_FORMAT = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UNORM;
+
+void ClearTexture(SDL_GPUCommandBuffer* commands, SDL_GPUTexture* texture)
+{
+    SDL_GPUColorTargetInfo target{};
+    target.texture = texture;
+    target.load_op = SDL_GPU_LOADOP_CLEAR;
+    target.store_op = SDL_GPU_STOREOP_STORE;
+    auto* pass = SDL_BeginGPURenderPass(commands, &target, 1, nullptr);
+    SDL_EndGPURenderPass(pass);
+}
 
 SDL_GPUGraphicsPipeline* CreatePipeline(SDL_GPUDevice* device, SDL_GPUShader* vertex,
     const char* fragment_name, Uint32 uniforms, SDL_GPUTextureFormat format)
@@ -61,36 +73,16 @@ AutomataGpu::~AutomataGpu()
 
 bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int height)
 {
-    m_width = width;
-    m_height = height;
-
     SDL_GPUShader* vertex = LoadSpirvShader(
         m_device, "grid_fullscreen_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX);
     if (!vertex)
         return false;
 
-    constexpr auto state_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UNORM;
     m_display_pipeline = CreatePipeline(m_device, vertex, "grid_sample_rgba8.frag.spv", 1, display_format);
     if (m_display_pipeline)
-        m_update_pipeline = CreatePipeline(m_device, vertex, "update_r1.frag.spv", 1, state_format);
+        m_update_pipeline = CreatePipeline(m_device, vertex, "update_r1.frag.spv", 1, STATE_FORMAT);
     SDL_ReleaseGPUShader(m_device, vertex);
     if (!m_update_pipeline)
-        return false;
-
-    SDL_GPUTextureCreateInfo texture{};
-    texture.type = SDL_GPU_TEXTURETYPE_2D;
-    texture.format = state_format;
-    texture.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-    texture.width = width;
-    texture.height = height;
-    texture.layer_count_or_depth = 1;
-    texture.num_levels = 1;
-
-    m_current = SDL_CreateGPUTexture(m_device, &texture);
-    if (!m_current)
-        return false;
-    m_next = SDL_CreateGPUTexture(m_device, &texture);
-    if (!m_next)
         return false;
 
     SDL_GPUSamplerCreateInfo sampler{};
@@ -104,26 +96,71 @@ bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int
     if (!m_sampler)
         return false;
 
+    return Resize(width, height);
+}
+
+bool AutomataGpu::Resize(int width, int height)
+{
+    if (width == m_width && height == m_height)
+        return true;
+
+    SDL_GPUTextureCreateInfo texture{};
+    texture.type = SDL_GPU_TEXTURETYPE_2D;
+    texture.format = STATE_FORMAT;
+    texture.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    texture.width = width;
+    texture.height = height;
+    texture.layer_count_or_depth = 1;
+    texture.num_levels = 1;
+
+    const auto release = [this](SDL_GPUTexture* tex) { SDL_ReleaseGPUTexture(m_device, tex); };
+    std::unique_ptr<SDL_GPUTexture, decltype(release)> current(SDL_CreateGPUTexture(m_device, &texture), release);
+    if (!current)
+        return false;
+    std::unique_ptr<SDL_GPUTexture, decltype(release)> next(SDL_CreateGPUTexture(m_device, &texture), release);
+    if (!next)
+        return false;
+
     auto* commands = SDL_AcquireGPUCommandBuffer(m_device);
     if (!commands)
         return false;
-    Clear(commands);
-    return SDL_SubmitGPUCommandBuffer(commands);
+    ClearTexture(commands, current.get());
+    if (m_current)
+    {
+        const auto overlap = GridOverlap(m_width, m_height, width, height);
+        const SDL_GPUTextureLocation source{
+            m_current, 0, 0, static_cast<Uint32>(overlap.source.x), static_cast<Uint32>(overlap.source.y), 0
+        };
+        const SDL_GPUTextureLocation destination{
+            current.get(), 0, 0, static_cast<Uint32>(overlap.destination.x),
+            static_cast<Uint32>(overlap.destination.y), 0
+        };
+        auto* pass = SDL_BeginGPUCopyPass(commands);
+        SDL_CopyGPUTextureToTexture(pass, &source, &destination, overlap.source.w, overlap.source.h, 1, false);
+        SDL_EndGPUCopyPass(pass);
+    }
+    if (!SDL_SubmitGPUCommandBuffer(commands))
+        return false;
+
+    if (m_current)
+        SDL_ReleaseGPUTexture(m_device, m_current);
+    if (m_next)
+        SDL_ReleaseGPUTexture(m_device, m_next);
+    m_current = current.release();
+    m_next = next.release();
+    m_width = width;
+    m_height = height;
+    return true;
 }
 
 void AutomataGpu::Clear(SDL_GPUCommandBuffer* commands)
 {
     // The update pass fully overwrites the second texture before it is read.
-    SDL_GPUColorTargetInfo target{};
-    target.texture = m_current;
-    target.load_op = SDL_GPU_LOADOP_CLEAR;
-    target.store_op = SDL_GPU_STOREOP_STORE;
-    auto* pass = SDL_BeginGPURenderPass(commands, &target, 1, nullptr);
-    SDL_EndGPURenderPass(pass);
+    ClearTexture(commands, m_current);
 }
 
 bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> stroke,
-                        float hue, int saturation, int size, Uint32 seed)
+                        float hue, int saturation, int size, Uint32 seed, bool erase)
 {
     if (stroke.empty())
         return true;
@@ -164,7 +201,7 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
     if (!data)
         return false;
 
-    const auto alive = MakeBrushTexel(hue, saturation);
+    const auto alive = erase ? BrushTexel{} : MakeBrushTexel(hue, saturation);
     for (const auto& upload : uploads)
         FillBrushRow(data + upload.offset / sizeof(BrushTexel), upload.bounds, seed, alive);
     SDL_UnmapGPUTransferBuffer(m_device, m_brush);
@@ -214,7 +251,7 @@ void AutomataGpu::Draw(SDL_GPUCommandBuffer* commands, SDL_GPURenderPass* pass, 
     SDL_BindGPUGraphicsPipeline(pass, m_display_pipeline);
     const SDL_GPUTextureSamplerBinding binding{m_current, m_sampler};
     SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
-    const float viewport[]{view.left, view.top, 1.0f / view.zoom, 0.0f};
+    const float viewport[]{view.left, view.top, view.ExtentX(), view.ExtentY()};
     SDL_PushGPUFragmentUniformData(commands, 0, viewport, sizeof(viewport));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
 }
