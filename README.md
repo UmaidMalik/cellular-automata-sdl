@@ -32,6 +32,14 @@ stages** sets the number of generations spent aging. Aging cells do not count
 as live neighbors. Disabling aging makes them eligible for birth on the next
 generation. Rule changes apply on the next generation.
 
+**Rule preset** sets the birth and survival counts, aging stages, and
+neighborhood together. The panel displays the active rule and shows
+**Custom** whenever those settings differ from the named presets.
+Presets come from Golly's [QuickLife](https://golly.sourceforge.io/Help/Algorithms/QuickLife.html),
+[Generations](https://golly.sourceforge.io/Help/Algorithms/Generations.html),
+and [Larger than Life](https://golly.sourceforge.io/Help/Algorithms/Larger_than_Life.html)
+rule examples.
+
 Births and survivors inherit the circular mean hue of their live neighbors.
 For example, hues on either side of red blend to red. If the neighbors'
 hues cancel, a survivor keeps its hue and a birth uses the first live
@@ -50,7 +58,8 @@ The grid starts empty and running at 4x zoom or closer on narrow screens so
 individual cells are visible.
 Hold the left mouse button and drag to paint living cells. Hold **X** while
 drawing to erase, or toggle **Erase brush**. The touch browser layout
-provides **Draw** and **Erase** buttons. Use one finger to draw or erase, and
+provides **Draw**, **Erase**, and **Settings** buttons. Open **Settings**
+from the toolbar and swipe the controls to scroll. Use one finger to draw or erase, and
 two fingers to pinch to zoom or drag to pan. The browser keeps the view
 centered and preserves the apparent cell size when you rotate your phone. Use **Aspect ratio** to choose a viewport preset or **Auto (fit window)** to
 follow the current window size. Auto is the default. Aspect changes crop the

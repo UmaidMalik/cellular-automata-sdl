@@ -30,6 +30,8 @@ class ImGuiManager
         ImGui_ImplSDLGPU3_InitInfo m_init_info{};
 #endif
         bool m_backends_ready = false;
+        bool m_mobile_settings_open = false;
+        bool m_mobile_scroll_touch = false;
     private:
         void ShutdownBackends();
     public:
