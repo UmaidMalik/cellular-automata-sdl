@@ -21,6 +21,7 @@ option(SDL_SHARED "Build shared SDL library" OFF)
 option(SDL_STATIC "Build static SDL library" ON)
 option(SDL_TEST "Build SDL test programs" OFF)
 add_subdirectory(thirdparty/SDL)  # provides SDL3::SDL3-static
+add_subdirectory(thirdparty/fmt)
 
 # ImGui (SDL_GPU backends)
 add_library(imgui STATIC
@@ -60,6 +61,7 @@ source_group(TREE "${PROJECT_SOURCE_DIR}/include" FILES ${CA_PUB_HDR})
 # 🔗 Link libraries here (not in target_include_directories)
 target_link_libraries(CellularAutomata PRIVATE
     imgui
+    fmt::fmt
 )
 
 if (WIN32)

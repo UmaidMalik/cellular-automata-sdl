@@ -10,6 +10,7 @@
 #include <string>
 #include <sstream>
 #include "utility.hpp"
+#include "logger.hpp"
 
 using uset = std::unordered_set<int>;
 using vector = std::vector<Cell>;
@@ -76,27 +77,29 @@ class AutomataSimulator
 AutomataSimulator::AutomataSimulator(int w, int h)
     : m_width(w), m_height(h)
 {
+    logger::Info("AutomataSimulator constructor called");
     m_grid.resize(m_width * m_height);
     m_grid_next.resize(m_width * m_height);
 }
 
 AutomataSimulator::~AutomataSimulator()
 {
-    std::cout << "~AutomataSimulator() destructor called and exited\n";
+    logger::Info("AutomataSimulator destructor called and exited");
 }
 
 void AutomataSimulator::DebugPrint()
 {
-    std::cout << "grid size: " << m_grid.size();
+    logger::Print("grid size: {}", m_grid.size());
+    
     for (size_t i = 0; i < m_grid.size(); i++)
     {
         if (i % m_width == 0)
         {
-            std::cout << "\n";
+            logger::Print("\n");
         }
-        std::cout << m_grid[i] << " ";
+        logger::Print("{} ", m_grid[i]);
     }
-    std::cout << "\n";
+    logger::Print("\n");
 }
 
 /*
@@ -111,13 +114,13 @@ bool AutomataSimulator::ParseRule(std::string& rule_string, bool is_born_rule)
     std::regex pattern(R"(^\d+(-\d+)?(,\d+(-\d+)?)*$)");
     if (!std::regex_match(rule_string, pattern))
     {
-        std::cerr << "Error: Invalid rule string" << "\n";
+        logger::Error("Error: Invalid rule string");
         return false;
     }
     auto rules = util::split_and_trim(rule_string, ',');
     for(auto& rule: rules)
     {
-        std::cout << "[DEBUG]: <" << rule << ">\n";
+        logger::Debug("<{}>", rule);
         auto dash = rule.find('-');
         if (dash == std::string::npos)
         {

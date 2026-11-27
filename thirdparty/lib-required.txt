@@ -1,2 +1,2 @@
-Place the SDL3 and Dear ImGui source checkouts here as SDL/ and imgui/.
-CMake builds both from source.
+Place the SDL3, Dear ImGui, and fmt source checkouts here as SDL/, imgui/, and fmt/.
+CMake builds all three from source.

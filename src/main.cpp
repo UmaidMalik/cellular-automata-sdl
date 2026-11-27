@@ -6,6 +6,7 @@
 #include "config.hpp"
 #include "event_handler.hpp"
 #include "imgui_manager.hpp"
+#include "logger.hpp"
 #include "renderer.hpp"
 #include "window.hpp"
 
@@ -48,7 +49,7 @@ std::vector<uint8_t> MakeSeed(const SimulationControls& controls)
 
 int ReportError(const char* action)
 {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s: %s", action, SDL_GetError());
+    logger::Error("{}: {}", action, SDL_GetError());
     return 1;
 }
 }

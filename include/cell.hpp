@@ -1,6 +1,8 @@
 #pragma once
 
 #include <iostream>
+#include <fmt/core.h>
+#include <fmt/ostream.h>
 #include <cstdint>
 #include "math.hpp"
 
@@ -31,3 +33,25 @@ std::ostream& operator<<(std::ostream& os, const Cell& cell)
         << static_cast<int>(cell.state)     << "]";
     return os;
 }
+
+template <>
+struct fmt::formatter<Cell>
+{
+    constexpr auto parse(format_parse_context& ctx)
+    {
+        return ctx.begin();
+    }
+
+    template <typename FormatContext>
+    auto format(const Cell& cell, FormatContext& ctx) const
+    {
+        return fmt::format_to
+        (
+            ctx.out(), "{{{:.2f},{:.2f},{:.2f}}}[{}]",
+            static_cast<float>(cell.color.h),
+            static_cast<float>(cell.color.s),
+            static_cast<float>(cell.color.v),
+            static_cast<int>(cell.state)
+        );
+    }
+};
