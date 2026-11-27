@@ -16,6 +16,9 @@
   <script>
     const canvas = document.getElementById("canvas");
     const statusMessage = document.getElementById("status");
+    // Mobile browser chrome can change the CSS size after the window resize.
+    // Let SDL update its window size and framebuffer when the canvas settles.
+    new ResizeObserver(() => window.dispatchEvent(new Event("resize"))).observe(canvas);
     canvas.addEventListener("contextmenu", event => event.preventDefault());
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && document.fullscreenElement?.contains(canvas)) {

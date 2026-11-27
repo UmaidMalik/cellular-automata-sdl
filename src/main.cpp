@@ -82,6 +82,12 @@ private:
     EventHandler events{&window, &imgui};
     SimulationControls controls;
     GridView view;
+    SDL_Rect previous_viewport{};
+    ImVec2 previous_screen{};
+    bool block_touches_until_release = false;
+#ifdef __EMSCRIPTEN__
+    float previous_cell_pixels = 0.0f;
+#endif
     SDL_Point grid{config::GRID_WIDTH, config::GRID_HEIGHT};
     bool grid_resize_failed = false;
     SimulationClock clock;
@@ -191,19 +197,45 @@ SDL_AppResult Application::Frame()
     }
     const SDL_Rect viewport = FitGridViewport(pixel_width, pixel_height,
                                               GRID_ASPECT_RATIOS[view.aspect_index]);
-    if (view.SetViewport(viewport, grid.x, grid.y))
+    const bool screen_resized = screen.x != previous_screen.x || screen.y != previous_screen.y;
+    const bool viewport_resized = !SDL_RectsEqual(&viewport, &previous_viewport);
+    const auto touches = events.Touches();
+    if (screen_resized || viewport_resized)
+        block_touches_until_release = !touches.empty();
+    else if (touches.empty())
+        block_touches_until_release = false;
+    previous_viewport = viewport;
+    previous_screen = screen;
+
+    const bool aspect_changed = view.SetViewport(viewport, grid.x, grid.y);
+    if (screen_resized || viewport_resized || aspect_changed)
     {
         previous_cell.reset();
         pending_touch_cell.reset();
         pinch.reset();
     }
+
+    const bool has_viewport = viewport.w > 0 && viewport.h > 0 && screen.x > 0.0f && screen.y > 0.0f;
+    const ImVec2 pixel_scale = has_viewport ? ImVec2(pixel_width / screen.x, pixel_height / screen.y) : ImVec2();
+    float brush_zoom = previous_zoom;
+#ifdef __EMSCRIPTEN__
+    const float css_viewport_width = has_viewport ? viewport.w / pixel_scale.x : 0.0f;
+    // Keep the same apparent cell size and centered content when the browser rotates or resizes.
+    if (has_viewport && screen_resized && previous_cell_pixels > 0.0f &&
+        action != SimulationAction::ResizeGrid && zoom == previous_zoom)
+    {
+        const float cell_pixels = css_viewport_width / (grid.x * view.ExtentX());
+        view.SetZoom(zoom * previous_cell_pixels / cell_pixels, 0.5f, 0.5f);
+        zoom = view.zoom;
+        brush_screen_scale *= zoom / previous_zoom;
+        brush_zoom = zoom;
+    }
+#endif
     if (zoom != view.zoom)
     {
         view.SetZoom(zoom, 0.5f, 0.5f);
         previous_cell.reset();
     }
-    const bool has_viewport = viewport.w > 0 && viewport.h > 0 && screen.x > 0.0f && screen.y > 0.0f;
-    const ImVec2 pixel_scale = has_viewport ? ImVec2(pixel_width / screen.x, pixel_height / screen.y) : ImVec2();
     const auto viewport_position = [&](float x, float y) {
         return has_viewport ? SDL_FPoint{(x - viewport.x) / viewport.w, (y - viewport.y) / viewport.h}
                             : SDL_FPoint{-1.0f, -1.0f};
@@ -223,8 +255,8 @@ SDL_AppResult Application::Frame()
 
     const bool over_ui = io.WantCaptureMouse || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
     const bool over_grid = !over_ui && inside_viewport(pointer);
-    const auto touches = events.Touches();
-    const bool block_touch_paint = events.MultitouchSequence() && (touch_pointer || !touches.empty());
+    const bool block_touch_paint = block_touches_until_release ||
+        (events.MultitouchSequence() && (touch_pointer || !touches.empty()));
     if (block_touch_paint)
     {
         pending_touch_cell.reset();
@@ -232,7 +264,7 @@ SDL_AppResult Application::Frame()
         stroke_started = false;
     }
 
-    if (has_viewport && touches.size() == 2 && touches[0].device == touches[1].device)
+    if (has_viewport && !block_touches_until_release && touches.size() == 2 && touches[0].device == touches[1].device)
     {
         const auto& first = touches[0];
         const auto& second = touches[1];
@@ -293,7 +325,7 @@ SDL_AppResult Application::Frame()
     {
         brush_screen_scale = controls.brush_size * view.zoom;
     }
-    else if (view.zoom != previous_zoom)
+    else if (view.zoom != brush_zoom)
     {
         // Keep the reference even when rounding or clamping the grid diameter.
         const int size = static_cast<int>(std::lround(brush_screen_scale / view.zoom));
@@ -341,6 +373,10 @@ SDL_AppResult Application::Frame()
         pending_touch_cell.reset();
     if (stroke.empty())
         previous_cell.reset();
+#ifdef __EMSCRIPTEN__
+    if (has_viewport)
+        previous_cell_pixels = css_viewport_width / (grid.x * view.ExtentX());
+#endif
     imgui.EndFrame();
 
 #ifdef __EMSCRIPTEN__
