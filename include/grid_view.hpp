@@ -11,8 +11,8 @@ struct GridAspectRatio
 };
 
 inline constexpr GridAspectRatio GRID_ASPECT_RATIOS[]{
-    {"16:9", 16, 9},
     {"Auto (fit window)", 0, 0},
+    {"16:9", 16, 9},
     {"5:4", 5, 4},
     {"4:3", 4, 3},
     {"1:1", 1, 1},
