@@ -8,6 +8,13 @@
 
 struct SimulationControls;
 
+enum class SimulationAction
+{
+    None,
+    Step,
+    Reset
+};
+
 class ImGuiManager
 {
     private:
@@ -37,7 +44,7 @@ class ImGuiManager
         void LoadFonts(const char* font_path, float font_size);
         void ProcessEvent(SDL_Event* event);
         void BeginFrame();
-        bool Build(SimulationControls& controls);
+        SimulationAction Build(SimulationControls& controls, float& zoom);
         void Prepare(SDL_GPUCommandBuffer* command);
         void Draw(SDL_GPURenderPass* render_pass, SDL_GPUCommandBuffer* command_buffer);
         void EndFrame();

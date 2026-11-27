@@ -15,8 +15,14 @@ struct SimulationControls
     static constexpr int NEIGHBOR_RANGE = 1;
     static constexpr int MAX_NEIGHBORS = 8;
 
-    bool paused = false;
+    static constexpr int MIN_GENERATIONS_PER_SECOND = 1;
+    static constexpr int MAX_GENERATIONS_PER_SECOND = 120;
+
+    int generations_per_second = 60;
+    bool paused = true;
     bool wrap_edges = true;
+    bool random_brush_hue = true;
+    float brush_hue = 0.5f;
     float color_decay = 0.999f;
     unsigned int birth_mask = (1u << 2) | (1u << 3);
     unsigned int survival_mask = 1u << 2;

@@ -27,6 +27,19 @@ and survival. Rule changes apply on the next generation.
 
 Living neighbors contribute their hue to the next generation. Dead cells keep
 their last hue and fade according to **Color retention**, the fraction of
-brightness kept per generation. Set it to 0 for immediate fading on the next
+brightness kept per generation. The slider gives finer control near 1,
+where small changes make trails last much longer. Set it to 0 for immediate fading on the next
 dead generation, or to 1 to keep the trail visible. Fading cells do not count
 as living neighbors.
+
+The grid starts empty and paused at 4x zoom so individual cells are visible.
+Hold the left mouse button and drag to paint living cells. **Random hue per
+stroke** picks a different color for every drag. Turn it off to use **Brush
+hue** instead. Scroll over the grid to zoom around the pointer,
+or use **Zoom** to zoom around the center. Hold the right mouse button and
+drag to pan. Set zoom to 1x to see the entire grid.
+
+Unpause the simulation or use **Step** to advance one generation. **Reset**
+clears the grid and pauses the simulation. Use **Speed** to set a target from
+1 to 120 generations per second. The actual rate depends on GPU work and how
+often the window can present.
