@@ -12,6 +12,7 @@ layout(std140, set = 3, binding = 0) uniform Params
     ivec4 grid; // width, height, range, wrap
     int agingStages;
     float decay;
+    int neighborhoodShape;
     uvec4 birthMask;
     uvec4 survivalMask;
 } U;
@@ -74,7 +75,25 @@ void main()
     vec2 firstHue = vec2(1.0, 0.5); // Red if a B0 birth has no neighbors.
     for (int dy = -U.grid.z; dy <= U.grid.z; ++dy)
     {
-        for (int dx = -U.grid.z; dx <= U.grid.z; ++dx)
+        int radius = U.grid.z;
+        int firstX = -radius;
+        int lastX = radius;
+        if (U.neighborhoodShape == 1) // Von Neumann
+        {
+            lastX = radius - abs(dy);
+            firstX = -lastX;
+        }
+        else if (U.neighborhoodShape == 2) // Circular, measured between cell centers
+        {
+            lastX = int(sqrt(float(radius * radius - dy * dy)) + 0.001);
+            firstX = -lastX;
+        }
+        else if (U.neighborhoodShape == 3) // Axial hex coordinates on a square texture
+        {
+            firstX = max(-radius, dy - radius);
+            lastX = min(radius, dy + radius);
+        }
+        for (int dx = firstX; dx <= lastX; ++dx)
         {
             if (dx == 0 && dy == 0)
                 continue;

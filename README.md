@@ -31,8 +31,11 @@ The Simulation panel keeps the FPS counter visible in its header. On mobile,
 it stays above the scrolling settings. The panel lets you pause, advance one generation while paused,
 toggle edge wrapping or fullscreen, and select the neighbor counts for birth
 and survival. Press **Esc** to exit fullscreen. The default is Conway's Game of Life (B3/S23), with two cell
-states. **Neighborhood** selects an odd square from 3x3 (8 neighbors) to
-11x11 (120 neighbors). The center cell is excluded. Birth and survival
+states. **Neighborhood shape** selects Moore (square), Von Neumann (diamond),
+Circular (a disk measured between cell centers), or Hexagonal (an axial hex grid
+displayed as square cells). **Radius** ranges from one to five cells. The center
+cell is excluded, and the panel displays the number of eligible neighbors.
+Birth and survival
 settings for larger counts are remembered when you switch to a smaller
 neighborhood. Turn on **Aging states** to delay rebirth after a cell dies. **Max aging
 stages** sets the number of generations spent aging. Aging cells do not count
@@ -42,7 +45,9 @@ generation. Rule changes apply on the next generation.
 **Rule preset** sets the birth and survival counts, aging stages, and
 neighborhood together. The panel displays the active rule and shows
 **Custom** whenever those settings differ from the named presets.
-The menu groups 36 presets into Life-like, Generations, and Larger than Life rules.
+The menu groups 41 presets into Life-like, Generations, Larger than Life, and Other neighborhoods.
+Circular Growth is a radius-three disk preset with birth counts 8–10 and
+survival counts 7–12.
 Presets come from [Cotronei's Life-like rule table](https://www.oldcitypublishing.com/wp-content/uploads/2025/07/JCAv16n3-4p239-310Cotronei.pdf)
 and Golly's [QuickLife](https://golly.sourceforge.io/Help/Algorithms/QuickLife.html),
 [Generations](https://golly.sourceforge.io/Help/Algorithms/Generations.html),
@@ -66,9 +71,11 @@ neighbors.
 The grid starts empty and running at 4x zoom or closer on narrow screens so
 individual cells are visible.
 Hold the left mouse button and drag to paint living cells. Hold **X** while
-drawing to erase, or toggle **Erase brush**. The touch browser layout
-provides **Draw**, **Erase**, and **Settings** buttons. Open **Settings**
-from the toolbar and swipe the controls to scroll. Use one finger to draw or erase, and
+drawing to erase, or toggle **Erase brush**. On mobile web, tap the **Mode**
+button to switch between drawing and erasing. Open **Settings** from the toolbar
+and swipe the controls to scroll. Tap **Hide UI for 5s** to clear the view for
+a screenshot. With a keyboard, press **H** to hide or restore the interface and
+**P** to pause or resume. Use one finger to draw or erase, and
 two fingers to pinch to zoom or drag to pan. The browser keeps the view
 centered and preserves the apparent cell size when you rotate your phone. Use **Aspect ratio** to choose a viewport preset or **Auto (fit window)** to
 follow the current window size. Auto is the default. Aspect changes crop the

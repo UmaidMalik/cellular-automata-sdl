@@ -165,6 +165,17 @@ void ImGuiManager::LoadFonts(const char* font_path, float font_size)
 void ImGuiManager::ProcessEvent(SDL_Event* event)
 {
     ImGui_ImplSDL3_ProcessEvent(event);
+#ifndef __EMSCRIPTEN__
+    if (event->type != SDL_EVENT_KEY_DOWN || event->key.repeat || m_imgui_io->WantTextInput ||
+        event->key.windowID != SDL_GetWindowID(m_window->GetSDLWindow()) ||
+        (event->key.mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI)))
+        return;
+
+    if (event->key.scancode == SDL_SCANCODE_P)
+        m_pause_shortcut_pending = !m_pause_shortcut_pending;
+    else if (event->key.scancode == SDL_SCANCODE_H)
+        m_hide_shortcut_pending = !m_hide_shortcut_pending;
+#endif
 }
 
 void ImGuiManager::ShutdownBackends()
@@ -255,11 +266,12 @@ void EditSimulationRule(SimulationControls& controls, bool mobile_layout)
     const auto* active = FindActiveRulePreset(controls);
     if (ImGui::BeginCombo("Rule preset", active ? active->name : "Custom"))
     {
-        const char* const groups[]{"Life-like", "Generations", "Larger than Life"};
+        const char* const groups[]{"Life-like", "Generations", "Larger than Life", "Other neighborhoods"};
         int previous_group = -1;
         for (const auto& preset : RULE_PRESETS)
         {
-            const int group = preset.radius > 1 ? 2 : (preset.aging_stages > 0 ? 1 : 0);
+            const int group = preset.shape != NeighborhoodShape::Moore ? 3
+                : preset.radius > 1 ? 2 : preset.aging_stages > 0 ? 1 : 0;
             if (group != previous_group)
             {
                 ImGui::SeparatorText(groups[group]);
@@ -274,25 +286,26 @@ void EditSimulationRule(SimulationControls& controls, bool mobile_layout)
         ImGui::EndCombo();
     }
 
-    const int width = NeighborhoodWidth(controls.neighbor_radius);
-    const int max_count = NeighborhoodMaxCount(controls.neighbor_radius);
+    const char* const shapes[]{"Moore", "Von Neumann", "Circular", "Hexagonal"};
+    int shape = static_cast<int>(controls.neighborhood_shape);
+    const int max_count = NeighborhoodMaxCount(controls.neighbor_radius, controls.neighborhood_shape);
     ImGui::TextWrapped("Birth (B): %s   Survival (S): %s",
         DescribeRuleCounts(controls.birth_mask, max_count).c_str(),
         DescribeRuleCounts(controls.survival_mask, max_count).c_str());
+    ImGui::TextWrapped("%s | Radius %d | %d neighbors", shapes[shape], controls.neighbor_radius, max_count);
     if (controls.aging_enabled)
-        ImGui::Text("%d x %d Moore | Aging on, max %d", width, width, controls.aging_stages);
+        ImGui::Text("Aging on, max %d", controls.aging_stages);
     else
-        ImGui::Text("%d x %d Moore | Aging off", width, width);
+        ImGui::TextUnformatted("Aging off");
 
     if (mobile_layout && !ImGui::CollapsingHeader("Customize rule"))
         return;
 
-    const char* const neighborhoods[]{"3 x 3", "5 x 5", "7 x 7", "9 x 9", "11 x 11"};
-    static_assert(IM_ARRAYSIZE(neighborhoods) == SimulationControls::MAX_NEIGHBOR_RADIUS);
-    int neighborhood = controls.neighbor_radius - 1;
-    if (ImGui::Combo("Neighborhood", &neighborhood, neighborhoods, IM_ARRAYSIZE(neighborhoods)))
-        controls.neighbor_radius = neighborhood + 1;
-    const int editable_count = NeighborhoodMaxCount(controls.neighbor_radius);
+    if (ImGui::Combo("Neighborhood shape", &shape, shapes, IM_ARRAYSIZE(shapes)))
+        controls.neighborhood_shape = static_cast<NeighborhoodShape>(shape);
+    ImGui::SliderInt("Radius", &controls.neighbor_radius, 1, SimulationControls::MAX_NEIGHBOR_RADIUS,
+                     "%d cells", ImGuiSliderFlags_AlwaysClamp);
+    const int editable_count = NeighborhoodMaxCount(controls.neighbor_radius, controls.neighborhood_shape);
     EditRule("Birth neighbors", controls.birth_mask, editable_count, mobile_layout);
     EditRule("Survival neighbors", controls.survival_mask, editable_count, mobile_layout);
     ImGui::Checkbox("Aging states", &controls.aging_enabled);
@@ -374,6 +387,38 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
                                      SDL_Point grid, int max_grid_size, bool resize_failed)
 {
     auto action = SimulationAction::None;
+    const Uint64 now = SDL_GetTicks();
+    const auto& io = *m_imgui_io;
+#ifdef __EMSCRIPTEN__
+    const int shortcuts = EM_ASM_INT({
+        const pending = Module['pendingShortcuts'] || 0;
+        Module['pendingShortcuts'] = 0;
+        return pending;
+    });
+    if (!io.WantTextInput)
+    {
+        m_hide_shortcut_pending = (shortcuts & 1) != 0;
+        m_pause_shortcut_pending = (shortcuts & 2) != 0;
+    }
+#endif
+    if (m_hide_shortcut_pending)
+    {
+        m_ui_hidden = !(m_ui_hidden || now < m_hide_until);
+        m_hide_until = 0;
+    }
+    m_hide_shortcut_pending = false;
+    if (m_pause_shortcut_pending)
+        controls.paused = !controls.paused;
+    m_pause_shortcut_pending = false;
+    const bool hidden = m_ui_hidden || now < m_hide_until;
+#ifdef __EMSCRIPTEN__
+    EM_ASM({
+        if (Module['setMobileToolbarHidden']) Module['setMobileToolbarHidden'](!!$0);
+    }, hidden ? 1 : 0);
+#endif
+    if (hidden)
+        return action;
+
     const ImVec2 screen = m_imgui_io->DisplaySize;
     bool mobile_layout = false;
 #ifdef __EMSCRIPTEN__
@@ -388,9 +433,7 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
             return pending;
         });
         if (toolbar_action == 1)
-            controls.erase_brush = false;
-        else if (toolbar_action == 2)
-            controls.erase_brush = true;
+            controls.erase_brush = !controls.erase_brush;
         else if (toolbar_action == 3)
             m_mobile_settings_open = !m_mobile_settings_open;
 
@@ -405,11 +448,9 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
                              ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize))
             {
                 const ImVec2 touch_target{76.0f, 40.0f};
-                if (ImGui::Selectable("Draw", !controls.erase_brush, 0, touch_target))
-                    controls.erase_brush = false;
-                ImGui::SameLine();
-                if (ImGui::Selectable("Erase", controls.erase_brush, 0, touch_target))
-                    controls.erase_brush = true;
+                if (ImGui::Button(controls.erase_brush ? "Mode: Erase###Brush mode" : "Mode: Draw###Brush mode",
+                                  ImVec2(108.0f, touch_target.y)))
+                    controls.erase_brush = !controls.erase_brush;
                 ImGui::SameLine();
                 if (ImGui::Button(m_mobile_settings_open ? "Close" : "Settings", touch_target))
                     m_mobile_settings_open = !m_mobile_settings_open;
@@ -442,8 +483,12 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
     const bool settings_child = mobile_layout && show_controls;
     if (settings_child)
     {
-        if (ImGui::Button("Close settings", ImVec2(-1.0f, 40.0f)))
+        const float half_width = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+        if (ImGui::Button("Close settings", ImVec2(half_width, 40.0f)))
             m_mobile_settings_open = false;
+        ImGui::SameLine();
+        if (ImGui::Button("Hide UI for 5s", ImVec2(-1.0f, 40.0f)))
+            m_hide_until = now + 5000;
         ImGui::Text("%.1f FPS", fps);
         ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 24.0f);
         show_controls = ImGui::BeginChild("Settings controls");
@@ -452,6 +497,7 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
     if (show_controls)
     {
         ImGui::Checkbox("Paused", &controls.paused);
+        ImGui::SetItemTooltip("Press P to pause or resume.");
         ImGui::SameLine();
         ImGui::BeginDisabled(!controls.paused);
         if (ImGui::Button("Step"))
@@ -523,7 +569,6 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
     }
     if (settings_child)
     {
-        const auto& io = *m_imgui_io;
         if (io.MouseSource != ImGuiMouseSource_TouchScreen || !ImGui::IsMouseDown(ImGuiMouseButton_Left))
             m_mobile_scroll_touch = false;
         else if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))

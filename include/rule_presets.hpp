@@ -10,6 +10,7 @@ struct RulePreset
     NeighborRule survival_mask;
     int radius;
     int aging_stages;
+    NeighborhoodShape shape = NeighborhoodShape::Moore;
 };
 
 constexpr NeighborRule RuleMask(std::initializer_list<unsigned int> counts)
@@ -67,6 +68,11 @@ inline constexpr RulePreset RULE_PRESETS[]{
     // Convert center-inclusive survival ranges. Majority's birth range tops out at 80 neighbors.
     {"Majority", RuleRange(41, 80), RuleRange(40, 80), 4, 0},
     {"Bosco's Rule", RuleRange(34, 45), RuleRange(33, 57), 5, 0},
+    {"Gnarl", RuleMask({1}), RuleMask({0}), 1, 0, NeighborhoodShape::VonNeumann},
+    {"B13/S012V", RuleMask({1, 3}), RuleMask({0, 1, 2}), 1, 0, NeighborhoodShape::VonNeumann},
+    {"B2/S013V", RuleMask({2}), RuleMask({0, 1, 3}), 1, 0, NeighborhoodShape::VonNeumann},
+    {"Circular Growth", RuleRange(8, 10), RuleRange(7, 12), 3, 0, NeighborhoodShape::Circular},
+    {"B245/S3H", RuleMask({2, 4, 5}), RuleMask({3}), 1, 0, NeighborhoodShape::Hexagonal},
 };
 
 constexpr int NeighborhoodWidth(int radius)
@@ -74,8 +80,20 @@ constexpr int NeighborhoodWidth(int radius)
     return radius * 2 + 1;
 }
 
-constexpr int NeighborhoodMaxCount(int radius)
+constexpr int NeighborhoodMaxCount(int radius, NeighborhoodShape shape = NeighborhoodShape::Moore)
 {
+    if (shape == NeighborhoodShape::VonNeumann)
+        return 2 * radius * (radius + 1);
+    if (shape == NeighborhoodShape::Hexagonal)
+        return 3 * radius * (radius + 1);
+    if (shape == NeighborhoodShape::Circular)
+    {
+        int count = 0;
+        for (int y = -radius; y <= radius; ++y)
+            for (int x = -radius; x <= radius; ++x)
+                count += x * x + y * y <= radius * radius;
+        return count - 1;
+    }
     const int width = NeighborhoodWidth(radius);
     return width * width - 1;
 }
@@ -88,10 +106,10 @@ constexpr bool RuleHasCount(const NeighborRule& mask, int count)
 inline const RulePreset* FindActiveRulePreset(const SimulationControls& controls)
 {
     const int aging = controls.aging_enabled ? controls.aging_stages : 0;
-    const int max_count = NeighborhoodMaxCount(controls.neighbor_radius);
+    const int max_count = NeighborhoodMaxCount(controls.neighbor_radius, controls.neighborhood_shape);
     for (const auto& preset : RULE_PRESETS)
     {
-        if (preset.radius != controls.neighbor_radius || preset.aging_stages != aging)
+        if (preset.shape != controls.neighborhood_shape || preset.radius != controls.neighbor_radius || preset.aging_stages != aging)
             continue;
 
         int count = 0;
@@ -112,6 +130,7 @@ inline void ApplyRulePreset(SimulationControls& controls, const RulePreset& pres
     controls.birth_mask = preset.birth_mask;
     controls.survival_mask = preset.survival_mask;
     controls.neighbor_radius = preset.radius;
+    controls.neighborhood_shape = preset.shape;
     controls.aging_enabled = preset.aging_stages > 0;
     if (controls.aging_enabled)
         controls.aging_stages = preset.aging_stages;
