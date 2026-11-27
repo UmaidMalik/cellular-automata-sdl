@@ -255,8 +255,16 @@ void EditSimulationRule(SimulationControls& controls, bool mobile_layout)
     const auto* active = FindActiveRulePreset(controls);
     if (ImGui::BeginCombo("Rule preset", active ? active->name : "Custom"))
     {
+        const char* const groups[]{"Life-like", "Generations", "Larger than Life"};
+        int previous_group = -1;
         for (const auto& preset : RULE_PRESETS)
         {
+            const int group = preset.radius > 1 ? 2 : (preset.aging_stages > 0 ? 1 : 0);
+            if (group != previous_group)
+            {
+                ImGui::SeparatorText(groups[group]);
+                previous_group = group;
+            }
             const bool selected = &preset == active;
             if (ImGui::Selectable(preset.name, selected))
                 ApplyRulePreset(controls, preset);
