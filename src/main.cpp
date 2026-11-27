@@ -202,7 +202,8 @@ int main()
         }
 
         const bool can_draw = renderer.GetSwapchainTexture() != nullptr;
-        if (controls.paused || reset_pending || !can_draw)
+        const bool paused = controls.paused || (controls.pause_on_draw && !stroke.empty());
+        if (paused || reset_pending || !can_draw)
             clock.Reset();
 
         if (can_draw)
@@ -220,7 +221,7 @@ int main()
                 int steps = 0;
                 if (action == SimulationAction::Step)
                     steps = 1;
-                else if (!controls.paused)
+                else if (!paused)
                     steps = clock.Advance(elapsed_seconds, controls.generations_per_second);
 
                 for (int step = 0; step < steps; ++step)
