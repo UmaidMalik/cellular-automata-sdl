@@ -1,0 +1,68 @@
+name: WebAssembly and GitHub Pages
+
+on:
+  push:
+    branches: [main, dev-webassembly-pages]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: libsdl-org/SDL
+          ref: 11411bb5ef0658fc5e17b3459b722b5510a4cd89
+          path: thirdparty/SDL
+      - uses: actions/checkout@v4
+        with:
+          repository: ocornut/imgui
+          ref: 2841c5135d6bb77bc23be4253ec2c6dfd86facbd
+          path: thirdparty/imgui
+      - uses: actions/checkout@v4
+        with:
+          repository: fmtlib/fmt
+          ref: 40626af88bd7df9a5fb80be7b25ac85b122d6c21
+          path: thirdparty/fmt
+      - uses: actions/checkout@v4
+        with:
+          repository: emscripten-core/emsdk
+          ref: 4.0.20
+          path: emsdk
+      - name: Build browser app
+        run: |
+          ./emsdk/emsdk install 4.0.20
+          ./emsdk/emsdk activate 4.0.20
+          source ./emsdk/emsdk_env.sh
+          emcmake cmake -S . -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-web --parallel 2
+          test -s build-web/site/index.html
+          test -s build-web/site/index.js
+          test -s build-web/site/index.wasm
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build-web/site
+
+  deploy:
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'push' && github.ref == 'refs/heads/dev-webassembly-pages')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment

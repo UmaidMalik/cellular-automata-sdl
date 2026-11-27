@@ -2,7 +2,9 @@
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
+#ifndef __EMSCRIPTEN__
 #include "imgui_impl_sdlgpu3.h"
+#endif
 #include "window.hpp"
 #include <iostream>
 
@@ -23,7 +25,9 @@ class ImGuiManager
         ImGuiStyle* m_style = nullptr;
         Window* m_window = nullptr;
         ImDrawData* m_draw_data = nullptr;
+#ifndef __EMSCRIPTEN__
         ImGui_ImplSDLGPU3_InitInfo m_init_info{};
+#endif
         bool m_backends_ready = false;
     private:
         void ShutdownBackends();
@@ -45,8 +49,12 @@ class ImGuiManager
         void ProcessEvent(SDL_Event* event);
         void BeginFrame();
         SimulationAction Build(SimulationControls& controls, float& zoom);
+#ifdef __EMSCRIPTEN__
+        void Draw();
+#else
         void Prepare(SDL_GPUCommandBuffer* command);
         void Draw(SDL_GPURenderPass* render_pass, SDL_GPUCommandBuffer* command_buffer);
+#endif
         void EndFrame();
         ImDrawData* GetDrawData();
 };

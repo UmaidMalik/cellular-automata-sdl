@@ -1,0 +1,8 @@
+#pragma once
+
+namespace web_shaders
+{
+inline constexpr char vertex[] = R"GLSL(@WEB_VERTEX@)GLSL";
+inline constexpr char update[] = R"GLSL(@WEB_UPDATE@)GLSL";
+inline constexpr char display[] = R"GLSL(@WEB_DISPLAY@)GLSL";
+}

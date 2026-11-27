@@ -9,8 +9,12 @@ class Window
         int m_height;
         const char* m_window_title;
         SDL_Window* m_sdl_window = nullptr;
+#ifdef __EMSCRIPTEN__
+        SDL_GLContext m_gl_context = nullptr;
+#else
         SDL_GPUDevice* m_gpu_device = nullptr;
         bool m_window_claimed = false;
+#endif
         float m_main_scale;
         bool m_running = false;
     public:
@@ -18,16 +22,20 @@ class Window
         ~Window();
         int InitWindow();
         int CreateWindow(SDL_WindowFlags window_flags);
-        int CreateGPUDevice();
         SDL_Window* GetSDLWindow() const;
+#ifdef __EMSCRIPTEN__
+        SDL_GLContext GetGLContext() const;
+#else
+        int CreateGPUDevice();
         SDL_GPUDevice* GetGPUDevice() const;
         int ClaimWindowForGPUDevice();
-        bool SetupWindow();
         int SetGPUSwapchainParams
         (
             SDL_GPUSwapchainComposition swapchain_composition,
             SDL_GPUPresentMode present_mode
         );
+#endif
+        bool SetupWindow();
         void SetFullscreen(bool enable);
         float GetMainScale();
         void StartRun();

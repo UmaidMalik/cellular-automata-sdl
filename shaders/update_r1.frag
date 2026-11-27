@@ -1,7 +1,13 @@
 #version 450
+#ifdef GL_ES
+layout(location = 0) out highp uvec4 outState;
+uniform highp usampler2D uCurrent;
+layout(std140) uniform Params
+#else
 layout(location = 0) out vec4 outState;
 layout(set = 2, binding = 0) uniform sampler2D uCurrent;
 layout(std140, set = 3, binding = 0) uniform Params
+#endif
 {
     ivec4 grid; // width, height, range, wrap
     int agingStages;
@@ -30,6 +36,24 @@ const int LIVE_STATE = 256;
 const float UNORM_MAX = 65535.0;
 const float LIVE_ALPHA = float(uint(LIVE_STATE) << SATURATION_BITS) / UNORM_MAX;
 
+vec4 readCell(ivec2 position)
+{
+#ifdef GL_ES
+    return vec4(texelFetch(uCurrent, position, 0)) / UNORM_MAX;
+#else
+    return texelFetch(uCurrent, position, 0);
+#endif
+}
+
+void writeCell(vec4 cell)
+{
+#ifdef GL_ES
+    outState = uvec4(round(clamp(cell, 0.0, 1.0) * UNORM_MAX));
+#else
+    outState = cell;
+#endif
+}
+
 uint readPackedState(float alpha)
 {
     return uint(round(alpha * UNORM_MAX));
@@ -54,7 +78,7 @@ void main()
         {
             if (dx == 0 && dy == 0)
                 continue;
-            vec4 neighbor = texelFetch(uCurrent, samplePosition(position + ivec2(dx, dy)), 0);
+            vec4 neighbor = readCell(samplePosition(position + ivec2(dx, dy)));
             if (neighbor.a >= LIVE_ALPHA)
             {
                 if (neighbors == 0)
@@ -66,7 +90,7 @@ void main()
         }
     }
 
-    vec4 cell = texelFetch(uCurrent, position, 0);
+    vec4 cell = readCell(position);
     uint packedState = readPackedState(cell.a);
     int state = int(packedState >> SATURATION_BITS);
     uint saturation = packedState & SATURATION_MASK;
@@ -78,7 +102,7 @@ void main()
     {
         // Round down to prevent small decay steps from getting stuck at a nonzero UNORM value.
         float value = floor(round(cell.b * 65535.0) * U.decay) / 65535.0;
-        outState = vec4(cell.rg, value, packState(0, saturation));
+        writeCell(vec4(cell.rg, value, packState(0, saturation)));
         return;
     }
 
@@ -96,10 +120,10 @@ void main()
             uint count = uint(neighbors);
             saturation = count == 0u ? 100u : (saturationSum + count / 2u) / count;
         }
-        outState = vec4(hue, 1.0, packState(LIVE_STATE, saturation));
+        writeCell(vec4(hue, 1.0, packState(LIVE_STATE, saturation)));
         return;
     }
 
     int nextState = min(U.agingStages, state - 1);
-    outState = vec4(cell.rgb, packState(nextState, saturation));
+    writeCell(vec4(cell.rgb, packState(nextState, saturation)));
 }

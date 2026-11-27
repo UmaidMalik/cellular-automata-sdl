@@ -3,7 +3,11 @@
 #include "imgui_manager.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
+#ifdef __EMSCRIPTEN__
+#include "imgui_impl_opengl3.h"
+#else
 #include "imgui_impl_sdlgpu3.h"
+#endif
 #include "window.hpp"
 #include <algorithm>
 #include <cmath>
@@ -13,7 +17,7 @@
 ImGuiManager::ImGuiManager(Window* window) 
     : m_window(window)
 {
-    if (!m_window || !m_window->GetSDLWindow() || !m_window->GetGPUDevice())
+    if (!m_window)
     {
         throw std::runtime_error("ImGuiManager: window/device not ready");
     }
@@ -26,10 +30,13 @@ ImGuiManager::~ImGuiManager()
         return;
     }
 
+#ifndef __EMSCRIPTEN__
     if (m_window && m_window->GetSDLWindow())
     {
-        SDL_WaitForGPUIdle(m_window->GetGPUDevice());
+        if (m_window->GetGPUDevice())
+            SDL_WaitForGPUIdle(m_window->GetGPUDevice());
     }
+#endif
 
     ImGui::SetCurrentContext(m_context);
     if (m_backends_ready)
@@ -94,6 +101,15 @@ bool ImGuiManager::SetupBackends()
         return false;
     }
 
+#ifdef __EMSCRIPTEN__
+    if (!ImGui_ImplSDL3_InitForOpenGL(m_window->GetSDLWindow(), m_window->GetGLContext()))
+        return false;
+    if (!ImGui_ImplOpenGL3_Init("#version 300 es"))
+    {
+        ImGui_ImplSDL3_Shutdown();
+        return false;
+    }
+#else
     if (!ImGui_ImplSDL3_InitForSDLGPU(m_window->GetSDLWindow()))
     {
         std::cerr << "Error: ImGui_ImplSDL3_InitForSDLGPU() failed\n";
@@ -117,6 +133,7 @@ bool ImGuiManager::SetupBackends()
         ImGui_ImplSDL3_Shutdown();
         return false;
     }
+#endif
     m_backends_ready = true;
     return true;
 }
@@ -148,13 +165,21 @@ void ImGuiManager::ProcessEvent(SDL_Event* event)
 
 void ImGuiManager::ShutdownBackends()
 {
+#ifdef __EMSCRIPTEN__
+    ImGui_ImplOpenGL3_Shutdown();
+#else
     ImGui_ImplSDLGPU3_Shutdown();
+#endif
     ImGui_ImplSDL3_Shutdown();
 }
 
 void ImGuiManager::BeginFrame()
 {
+#ifdef __EMSCRIPTEN__
+    ImGui_ImplOpenGL3_NewFrame();
+#else
     ImGui_ImplSDLGPU3_NewFrame();
+#endif
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 }
@@ -280,6 +305,12 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom)
     return action;
 }
 
+#ifdef __EMSCRIPTEN__
+void ImGuiManager::Draw()
+{
+    ImGui_ImplOpenGL3_RenderDrawData(m_draw_data);
+}
+#else
 void ImGuiManager::Prepare(SDL_GPUCommandBuffer* command_buffer)
 {
     ImGui_ImplSDLGPU3_PrepareDrawData(m_draw_data, command_buffer);
@@ -290,6 +321,8 @@ void ImGuiManager::Draw(SDL_GPURenderPass* render_pass, SDL_GPUCommandBuffer* co
 {
     ImGui_ImplSDLGPU3_RenderDrawData(m_draw_data, command_buffer, render_pass);
 }
+
+#endif
 
 void ImGuiManager::EndFrame()
 {

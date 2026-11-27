@@ -10,6 +10,10 @@ Window::Window(int width, int height, const char* title)
 
 Window::~Window()
 {
+#ifdef __EMSCRIPTEN__
+    if (m_gl_context)
+        SDL_GL_DestroyContext(m_gl_context);
+#else
     if (m_gpu_device)
     {
         SDL_WaitForGPUIdle(m_gpu_device);
@@ -17,6 +21,7 @@ Window::~Window()
             SDL_ReleaseWindowFromGPUDevice(m_gpu_device, m_sdl_window);
         SDL_DestroyGPUDevice(m_gpu_device);
     }
+#endif
     if (m_sdl_window)
         SDL_DestroyWindow(m_sdl_window);
     SDL_Quit();
@@ -50,6 +55,7 @@ int Window::CreateWindow(SDL_WindowFlags window_flags)
     return 0;
 }
 
+#ifndef __EMSCRIPTEN__
 int Window::CreateGPUDevice()
 {
     m_gpu_device = SDL_CreateGPUDevice
@@ -67,15 +73,25 @@ int Window::CreateGPUDevice()
     return 0;
 }
 
+#endif
+
 SDL_Window* Window::GetSDLWindow() const
 { 
     return m_sdl_window; 
 }
 
+#ifdef __EMSCRIPTEN__
+SDL_GLContext Window::GetGLContext() const
+{
+    return m_gl_context;
+}
+#else
 SDL_GPUDevice* Window::GetGPUDevice() const
 {
     return m_gpu_device;
 }
+
+#endif
 
 void Window::SetFullscreen(bool enable)
 {
@@ -94,6 +110,7 @@ float Window::GetMainScale()
     return m_main_scale;
 }
 
+#ifndef __EMSCRIPTEN__
 int Window::ClaimWindowForGPUDevice()
 {
     if (!SDL_ClaimWindowForGPUDevice(m_gpu_device, m_sdl_window))
@@ -125,8 +142,23 @@ int Window::SetGPUSwapchainParams
     return 0;
 }
 
+#endif
+
 bool Window::SetupWindow()
 {
+#ifdef __EMSCRIPTEN__
+    if (InitWindow() != 0)
+        return false;
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    if (CreateWindow(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY) != 0)
+        return false;
+    m_gl_context = SDL_GL_CreateContext(m_sdl_window);
+    if (!m_gl_context)
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Creating WebGL 2 context: %s", SDL_GetError());
+    return m_gl_context != nullptr;
+#else
     if (InitWindow() != 0 ||
         CreateWindow(SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN | SDL_WINDOW_HIGH_PIXEL_DENSITY) != 0 ||
         CreateGPUDevice() != 0 ||
@@ -138,6 +170,7 @@ bool Window::SetupWindow()
         return false;
     }
     return true;
+#endif
 }
 
 void Window::StartRun()

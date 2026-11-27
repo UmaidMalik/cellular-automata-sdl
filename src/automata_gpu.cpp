@@ -1,46 +1,18 @@
 #include "automata_gpu.hpp"
+#include "automata_parameters.hpp"
+#include "brush.hpp"
 #include "config.hpp"
 #include "grid_view.hpp"
 #include "shader_loader.hpp"
 
 #include <SDL3/SDL.h>
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstdint>
-#include <numbers>
 #include <utility>
 #include <vector>
 
 namespace
 {
-struct alignas(16) AutomataParams
-{
-    int32_t width, height, range, wrap;
-    int32_t aging_stages;
-    float decay;
-    int32_t padding[2];
-    NeighborRule birth_mask;
-    NeighborRule survival_mask;
-};
-static_assert(sizeof(AutomataParams) == 64);
-using BrushTexel = std::array<uint16_t, 4>;
 // Align both row pitch and source offset for SDL GPU backends such as D3D12.
 constexpr Uint32 BRUSH_ROW_ALIGNMENT = 512;
-// Match update_r1.frag: alpha stores a nine-bit state and seven-bit saturation.
-constexpr uint16_t LIVE_CELL_STATE = 256;
-constexpr int SATURATION_BITS = 7;
-
-bool BrushCellIsAlive(Uint32 seed, int x, int y)
-{
-    Uint32 hash = seed ^ (static_cast<Uint32>(x) * 0x9e3779b9u) ^ (static_cast<Uint32>(y) * 0x85ebca6bu);
-    hash ^= hash >> 16;
-    hash *= 0x7feb352du;
-    hash ^= hash >> 15;
-    hash *= 0x846ca68bu;
-    return ((hash ^ (hash >> 16)) >> 31) != 0;
-}
-static_assert(sizeof(BrushTexel) == 8);
 
 SDL_GPUGraphicsPipeline* CreatePipeline(SDL_GPUDevice* device, SDL_GPUShader* vertex,
     const char* fragment_name, Uint32 uniforms, SDL_GPUTextureFormat format)
@@ -156,65 +128,22 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
     if (stroke.empty())
         return true;
 
-    const int half = size / 2;
-    // Measure from cell centers in doubled coordinates so even diameters
-    // can be centered between cells. Their outermost rows still get two cells.
-    const int diameter = size - 1;
-    const int radius_squared = diameter * diameter + (size % 2 == 0 ? 1 : 0);
-    std::array<int, SimulationControls::MAX_BRUSH_SIZE> insets{};
-    for (int y = 0; y < size; ++y)
+    struct UploadRow
     {
-        const int dy = 2 * y - diameter;
-        const int max_x = static_cast<int>(std::sqrt(radius_squared - dy * dy));
-        insets[y] = (diameter - max_x + 1) / 2;
-    }
-
-    const auto bounds = std::ranges::minmax_element(stroke, {}, &SDL_Point::y);
-    const int top = std::max(0, bounds.min->y - half);
-    const int bottom = std::min(m_height, bounds.max->y - half + size);
-
-    // The stroke centers form a contiguous line. Merge overlapping stamps
-    // into one upload per row instead of issuing a copy for every cell.
-    struct Row
-    {
-        int left;
-        int right;
-        Uint32 offset = 0;
-        Uint32 pitch = 0;
-
-        int Width() const { return right - left; }
+        BrushRow bounds;
+        Uint32 offset;
+        Uint32 pitch;
     };
-    std::vector<Row> rows(bottom - top, Row{m_width, 0});
-    for (const auto cell : stroke)
-    {
-        const int stamp_left = cell.x - half;
-        const int stamp_top = cell.y - half;
-        const int first_row = std::max(0, stamp_top);
-        const int end_row = std::min(m_height, stamp_top + size);
-
-        for (int y = first_row; y < end_row; ++y)
-        {
-            const int inset = insets[y - stamp_top];
-            const int left = std::max(0, stamp_left + inset);
-            const int right = std::min(m_width, stamp_left + size - inset);
-            if (left < right)
-            {
-                Row& row = rows[y - top];
-                row.left = std::min(row.left, left);
-                row.right = std::max(row.right, right);
-            }
-        }
-    }
-
+    std::vector<UploadRow> uploads;
     Uint32 bytes = 0;
-    for (auto& row : rows)
+    for (const auto& row : RasterizeBrush(stroke, size, m_width, m_height))
     {
         if (row.Width() <= 0)
             continue;
         const Uint32 row_bytes = row.Width() * sizeof(BrushTexel);
-        row.offset = bytes;
-        row.pitch = (row_bytes + BRUSH_ROW_ALIGNMENT - 1) / BRUSH_ROW_ALIGNMENT * BRUSH_ROW_ALIGNMENT;
-        bytes += row.pitch;
+        const Uint32 pitch = (row_bytes + BRUSH_ROW_ALIGNMENT - 1) / BRUSH_ROW_ALIGNMENT * BRUSH_ROW_ALIGNMENT;
+        uploads.push_back({row, bytes, pitch});
+        bytes += pitch;
     }
 
     if (bytes > m_brush_capacity)
@@ -235,24 +164,9 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
     if (!data)
         return false;
 
-    // Store hue as a direction so the update pass can average colors across the hue seam.
-    const float angle = 2.0f * std::numbers::pi_v<float> * hue;
-    const auto saturation_percent = static_cast<uint16_t>(std::clamp(saturation,
-        SimulationControls::MIN_BRUSH_SATURATION, SimulationControls::MAX_BRUSH_SATURATION));
-    const BrushTexel alive{
-        static_cast<uint16_t>(std::lround((std::cos(angle) * 0.5f + 0.5f) * UINT16_MAX)),
-        static_cast<uint16_t>(std::lround((std::sin(angle) * 0.5f + 0.5f) * UINT16_MAX)),
-        UINT16_MAX,
-        static_cast<uint16_t>((LIVE_CELL_STATE << SATURATION_BITS) | saturation_percent)
-    };
-    constexpr BrushTexel dead{};
-    for (int y = top; y < bottom; ++y)
-    {
-        const auto& row = rows[y - top];
-        auto* pixels = data + row.offset / sizeof(BrushTexel);
-        for (int x = row.left; x < row.right; ++x)
-            pixels[x - row.left] = BrushCellIsAlive(seed, x, y) ? alive : dead;
-    }
+    const auto alive = MakeBrushTexel(hue, saturation);
+    for (const auto& upload : uploads)
+        FillBrushRow(data + upload.offset / sizeof(BrushTexel), upload.bounds, seed, alive);
     SDL_UnmapGPUTransferBuffer(m_device, m_brush);
 
     auto* pass = SDL_BeginGPUCopyPass(commands);
@@ -263,16 +177,13 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
     SDL_GPUTextureRegion destination{};
     destination.texture = m_current;
     destination.h = destination.d = 1;
-    for (int y = top; y < bottom; ++y)
+    for (const auto& upload : uploads)
     {
-        const auto& row = rows[y - top];
-        if (row.Width() <= 0)
-            continue;
-        source.offset = row.offset;
-        source.pixels_per_row = row.pitch / sizeof(BrushTexel);
-        destination.x = row.left;
-        destination.y = y;
-        destination.w = row.Width();
+        source.offset = upload.offset;
+        source.pixels_per_row = upload.pitch / sizeof(BrushTexel);
+        destination.x = upload.bounds.left;
+        destination.y = upload.bounds.y;
+        destination.w = upload.bounds.Width();
         SDL_UploadToGPUTexture(pass, &source, &destination, false);
     }
     SDL_EndGPUCopyPass(pass);
@@ -291,10 +202,7 @@ void AutomataGpu::Step(SDL_GPUCommandBuffer* commands, const SimulationControls&
     const SDL_GPUTextureSamplerBinding binding{m_current, m_sampler};
     SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
 
-    const AutomataParams params{
-        m_width, m_height, controls.neighbor_radius, controls.wrap_edges,
-        controls.aging_enabled ? controls.aging_stages : 0, controls.color_decay, {}, controls.birth_mask, controls.survival_mask
-    };
+    const auto params = MakeAutomataParams(m_width, m_height, controls);
     SDL_PushGPUFragmentUniformData(commands, 0, &params, sizeof(params));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
     SDL_EndGPURenderPass(pass);
