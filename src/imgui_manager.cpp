@@ -362,7 +362,7 @@ void EditColorRetention(float& retention, bool mobile_layout)
 }
 
 SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, int& aspect_index,
-                                     SDL_Point grid, bool resize_failed)
+                                     SDL_Point grid, int max_grid_size, bool resize_failed)
 {
     auto action = SimulationAction::None;
     const ImVec2 screen = m_imgui_io->DisplaySize;
@@ -473,7 +473,7 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
             ImGui::EndCombo();
         }
         ImGui::SliderInt("Grid size", &controls.grid_size, SimulationControls::MIN_GRID_SIZE,
-                         SimulationControls::MAX_GRID_SIZE, "%d cells on long side", ImGuiSliderFlags_AlwaysClamp);
+                         max_grid_size, "%d cells on long side", ImGuiSliderFlags_AlwaysClamp);
         const auto grid_target = GridSizeForAspect(controls.grid_size, GRID_ASPECT_RATIOS[aspect_index],
             {static_cast<int>(m_imgui_io->DisplaySize.x), static_cast<int>(m_imgui_io->DisplaySize.y)});
         ImGui::Text("Grid: %d x %d cells", grid.x, grid.y);

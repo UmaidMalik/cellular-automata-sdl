@@ -90,6 +90,7 @@ private:
     float previous_cell_pixels = 0.0f;
 #endif
     SDL_Point grid{config::GRID_WIDTH, config::GRID_HEIGHT};
+    int max_grid_size = SimulationControls::MAX_DESKTOP_GRID_SIZE;
     bool grid_resize_failed = false;
     SimulationClock clock;
     Uint64 previous_frame = 0;
@@ -111,6 +112,24 @@ SDL_AppResult Application::Initialize()
 {
     if (!window.SetupWindow())
         return SDL_APP_FAILURE;
+#ifdef __EMSCRIPTEN__
+    const bool mobile = EM_ASM_INT({
+        return matchMedia("(pointer: coarse)").matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    });
+    if (mobile)
+        max_grid_size = SimulationControls::MAX_MOBILE_GRID_SIZE;
+    max_grid_size = std::min(max_grid_size, WebAutomata::MaxGridSize());
+    if (max_grid_size < SimulationControls::MIN_GRID_SIZE)
+    {
+        SDL_SetError("WebGL cannot render a grid of at least %d cells per side", SimulationControls::MIN_GRID_SIZE);
+        return ReportError("Initializing GPU simulation");
+    }
+    if (controls.grid_size > max_grid_size)
+    {
+        controls.grid_size = max_grid_size;
+        grid = {max_grid_size, std::max(1, config::GRID_HEIGHT * max_grid_size / config::GRID_WIDTH)};
+    }
+#endif
 
     int width = 0;
     int height = 0;
@@ -172,7 +191,7 @@ SDL_AppResult Application::Frame()
     const int previous_brush_size = controls.brush_size;
     const bool was_synced = controls.sync_brush_with_zoom;
     float zoom = view.zoom;
-    const auto action = imgui.Build(controls, zoom, view.aspect_index, grid, grid_resize_failed);
+    const auto action = imgui.Build(controls, zoom, view.aspect_index, grid, max_grid_size, grid_resize_failed);
     reset_pending = reset_pending || action == SimulationAction::Reset;
     const auto& io = *imgui.GetIO();
     const ImVec2 mouse = io.MousePos;

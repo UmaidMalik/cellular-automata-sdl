@@ -14,6 +14,7 @@ class WebAutomata
 {
 public:
     ~WebAutomata();
+    static int MaxGridSize();
     bool Initialize(int width, int height);
     bool Resize(int width, int height);
     void Clear(SDL_GPUCommandBuffer*);

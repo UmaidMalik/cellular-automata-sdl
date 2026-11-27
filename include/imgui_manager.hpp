@@ -52,7 +52,7 @@ class ImGuiManager
         void ProcessEvent(SDL_Event* event);
         void BeginFrame();
         SimulationAction Build(SimulationControls& controls, float& zoom, int& aspect_index,
-                               SDL_Point grid, bool resize_failed);
+                               SDL_Point grid, int max_grid_size, bool resize_failed);
 #ifdef __EMSCRIPTEN__
         void Draw();
 #else
