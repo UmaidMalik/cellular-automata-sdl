@@ -1,0 +1,101 @@
+name: Desktop release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - runner: windows-2022
+            platform: windows-x64
+          - runner: ubuntu-24.04
+            platform: linux-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: libsdl-org/SDL
+          ref: 11411bb5ef0658fc5e17b3459b722b5510a4cd89
+          path: thirdparty/SDL
+      - uses: actions/checkout@v4
+        with:
+          repository: ocornut/imgui
+          ref: 2841c5135d6bb77bc23be4253ec2c6dfd86facbd
+          path: thirdparty/imgui
+      - uses: actions/checkout@v4
+        with:
+          repository: fmtlib/fmt
+          ref: 40626af88bd7df9a5fb80be7b25ac85b122d6c21
+          path: thirdparty/fmt
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxcursor-dev libxext-dev libxi-dev \
+            libxfixes-dev libxrandr-dev libxss-dev libxtst-dev libxkbcommon-dev \
+            libwayland-dev libdecor-0-dev wayland-protocols libdrm-dev libgbm-dev
+      - name: Package Linux release
+        if: runner.os == 'Linux'
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release --target CellularAutomata
+          test -x build/bin/Release/CellularAutomata
+          test "$(find build/bin/Release/shaders -name '*.spv' | wc -l)" -eq 3
+          mkdir build/bin/Release/licenses
+          cp thirdparty/SDL/LICENSE.txt build/bin/Release/licenses/SDL.txt
+          cp thirdparty/imgui/LICENSE.txt build/bin/Release/licenses/ImGui.txt
+          cp thirdparty/fmt/LICENSE build/bin/Release/licenses/fmt.txt
+          tar -czf "CellularAutomata-${GITHUB_REF_NAME}-linux-x64.tar.gz" \
+            -C build/bin/Release CellularAutomata shaders licenses
+      - name: Package Windows release
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G 'Visual Studio 17 2022' -A x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build --config Release --target CellularAutomata --parallel
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $output = 'build/bin/Release'
+          if (!(Test-Path "$output/CellularAutomata.exe") -or
+              @(Get-ChildItem "$output/shaders" -Filter '*.spv').Count -ne 3) {
+            throw 'The executable or its shaders are missing'
+          }
+          New-Item -ItemType Directory "$output/licenses" -Force | Out-Null
+          Copy-Item thirdparty/SDL/LICENSE.txt "$output/licenses/SDL.txt"
+          Copy-Item thirdparty/imgui/LICENSE.txt "$output/licenses/ImGui.txt"
+          Copy-Item thirdparty/fmt/LICENSE "$output/licenses/fmt.txt"
+          Compress-Archive -Path "$output/CellularAutomata.exe", "$output/shaders", "$output/licenses" `
+            -DestinationPath "CellularAutomata-$env:GITHUB_REF_NAME-windows-x64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: CellularAutomata-${{ github.ref_name }}-${{ matrix.platform }}.*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: release
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --title "Cellular Automata $GITHUB_REF_NAME" --generate-notes \
+            --notes 'Extract the entire archive and keep the `shaders` folder alongside the executable. The x64 builds require a Vulkan-capable graphics driver. The Linux build targets Ubuntu 24.04 and compatible distributions.' \
+            "release/CellularAutomata-${GITHUB_REF_NAME}-windows-x64.zip" \
+            "release/CellularAutomata-${GITHUB_REF_NAME}-linux-x64.tar.gz"
