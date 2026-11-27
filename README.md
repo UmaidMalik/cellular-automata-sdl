@@ -29,10 +29,13 @@ stages** sets the number of generations spent aging. Aging cells do not count
 as live neighbors. Disabling aging makes them eligible for birth on the next
 generation. Rule changes apply on the next generation.
 
-Living neighbors contribute their hue to the next generation. Dead cells keep
-their last hue and fade according to **Color retention**, the fraction of
-brightness kept per generation. The slider gives finer control near 1,
-where small changes make trails last much longer. Set it to 0 for immediate fading on the next
+Births and survivors inherit the circular mean hue of their live neighbors.
+For example, hues on either side of red blend to red. If the neighbors'
+hues cancel, a survivor keeps its hue and a birth uses the first live
+neighbor's hue. Cells keep their last color as they age and die. Once dead,
+they fade according to **Color retention**, the fraction of brightness kept
+per generation. The slider gives finer control near 1, where small changes
+make trails last much longer. Set it to 0 for immediate fading on the next
 dead generation, or to 1 to keep the trail visible. Fading cells do not count
 as living neighbors.
 

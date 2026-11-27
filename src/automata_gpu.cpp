@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <numbers>
 #include <utility>
 #include <vector>
 
@@ -230,8 +231,13 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
     if (!data)
         return false;
 
+    // Store hue as a direction so the update pass can average colors across the hue seam.
+    const float angle = 2.0f * std::numbers::pi_v<float> * hue;
     const BrushTexel alive{
-        static_cast<uint16_t>(std::lround(hue * UINT16_MAX)), UINT16_MAX, UINT16_MAX, UINT16_MAX
+        static_cast<uint16_t>(std::lround((std::cos(angle) * 0.5f + 0.5f) * UINT16_MAX)),
+        static_cast<uint16_t>(std::lround((std::sin(angle) * 0.5f + 0.5f) * UINT16_MAX)),
+        UINT16_MAX,
+        UINT16_MAX
     };
     constexpr BrushTexel dead{};
     for (int y = top; y < bottom; ++y)

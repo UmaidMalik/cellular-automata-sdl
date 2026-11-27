@@ -30,7 +30,9 @@ void main()
 {
     ivec2 position = ivec2(gl_FragCoord.xy);
     int neighbors = 0;
-    float hueSum = 0.0;
+    // RG stores a unit hue vector mapped from [-1, 1] to UNORM.
+    vec2 hueSum = vec2(0.0);
+    vec2 firstHue = vec2(1.0, 0.5); // Red if a B0 birth has no neighbors.
     for (int dy = -U.grid.z; dy <= U.grid.z; ++dy)
     {
         for (int dx = -U.grid.z; dx <= U.grid.z; ++dx)
@@ -40,8 +42,10 @@ void main()
             vec4 neighbor = texelFetch(uCurrent, samplePosition(position + ivec2(dx, dy)), 0);
             if (neighbor.a == 1.0)
             {
+                if (neighbors == 0)
+                    firstHue = neighbor.rg;
                 ++neighbors;
-                hueSum += neighbor.r;
+                hueSum += neighbor.rg * 2.0 - 1.0;
             }
         }
     }
@@ -56,11 +60,23 @@ void main()
     {
         // Round down to prevent small decay steps from getting stuck at a nonzero UNORM value.
         float value = floor(round(cell.b * 65535.0) * U.decay) / 65535.0;
-        outState = vec4(cell.r, 1.0, value, 0.0);
+        outState = vec4(cell.rg, value, 0.0);
         return;
     }
 
-    int nextState = born || survives ? LIVE_STATE : min(U.agingStages, state - 1);
-    float hue = neighbors > 0 ? hueSum / float(neighbors) : 0.0;
-    outState = vec4(hue, 1.0, 1.0, float(nextState) / STATE_SCALE);
+    if (born || survives)
+    {
+        // Opposing hues can cancel. Keep a survivor's hue, or inherit the
+        // first live neighbor's hue for a birth with no clear average.
+        vec2 hue = survives ? cell.rg : firstHue;
+        float lengthSquared = dot(hueSum, hueSum);
+        float quantizationError = 2.0 * float(neighbors) / 65535.0;
+        if (lengthSquared > quantizationError * quantizationError)
+            hue = hueSum * inversesqrt(lengthSquared) * 0.5 + 0.5;
+        outState = vec4(hue, 1.0, 1.0);
+        return;
+    }
+
+    int nextState = min(U.agingStages, state - 1);
+    outState = vec4(cell.rgb, float(nextState) / STATE_SCALE);
 }
