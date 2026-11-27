@@ -50,7 +50,8 @@ The grid starts empty and paused at 4x zoom or closer on narrow screens so
 individual cells are visible.
 Hold the left mouse button and drag to paint living cells. Hold **X** while
 drawing to erase, or toggle **Erase brush**. The touch browser layout
-provides **Draw** and **Erase** buttons. Use **Aspect ratio** to choose a viewport preset or **Auto (fit window)** to
+provides **Draw** and **Erase** buttons. Use one finger to draw or erase, and
+two fingers to pinch to zoom or drag to pan. Use **Aspect ratio** to choose a viewport preset or **Auto (fit window)** to
 follow the current window size. The default is 16:9. Other ratios crop the
 visible grid while keeping cells square. **Grid size** sets the length of
 the longer side from 128 to 3200 cells. The other side follows the selected
