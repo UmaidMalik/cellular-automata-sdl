@@ -230,7 +230,7 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom)
         ImGui::SliderFloat("Zoom", &zoom, GridView::MIN_ZOOM, GridView::MAX_ZOOM,
                            "%.1fx", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
         ImGui::SliderInt("Brush size", &controls.brush_size, 1, SimulationControls::MAX_BRUSH_SIZE,
-                         "%d cells", ImGuiSliderFlags_AlwaysClamp);
+                         "%d cells", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
         ImGui::SetItemTooltip("Shift + scroll over the grid to resize the brush.");
         ImGui::Checkbox("Random hue per stroke", &controls.random_brush_hue);
         ImGui::BeginDisabled(controls.random_brush_hue);

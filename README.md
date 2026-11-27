@@ -38,7 +38,8 @@ as living neighbors.
 
 The grid starts empty and paused at 4x zoom so individual cells are visible.
 Hold the left mouse button and drag to paint living cells. **Brush size**
-sets the diameter of the circular brush in cells. Hold Shift while scrolling
+sets the circular brush diameter from 1 to 500 cells on a logarithmic scale.
+Hold Shift while scrolling
 over the grid to resize it. Each cell whose center is inside or on the
 circle is randomly set alive or dead, with an even chance of either.
 **Random hue per

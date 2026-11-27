@@ -160,12 +160,8 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
     for (int y = 0; y < size; ++y)
     {
         const int dy = 2 * y - diameter;
-        int x = diameter;
-        while (x * x + dy * dy > radius_squared)
-        {
-            ++insets[y];
-            x -= 2;
-        }
+        const int max_x = static_cast<int>(std::sqrt(radius_squared - dy * dy));
+        insets[y] = (diameter - max_x + 1) / 2;
     }
 
     const auto bounds = std::ranges::minmax_element(stroke, {}, &SDL_Point::y);

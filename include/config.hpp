@@ -18,7 +18,7 @@ struct SimulationControls
     static constexpr int MAX_GENERATIONS_PER_SECOND = 120;
 
     static constexpr int MAX_AGING_STAGES = 255;
-    static constexpr int MAX_BRUSH_SIZE = 64;
+    static constexpr int MAX_BRUSH_SIZE = 500;
 
     bool aging_enabled = false;
     int aging_stages = 6;
