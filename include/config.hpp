@@ -1,5 +1,9 @@
 #pragma once
 
+#include <array>
+
+using NeighborRule = std::array<unsigned int, 4>;
+
 struct config
 {
     static constexpr int WINDOW_WIDTH = 1280;
@@ -11,8 +15,7 @@ struct config
 
 struct SimulationControls
 {
-    static constexpr int NEIGHBOR_RANGE = 1;
-    static constexpr int MAX_NEIGHBORS = 8;
+    static constexpr int MAX_NEIGHBOR_RADIUS = 5;
 
     static constexpr int MIN_GENERATIONS_PER_SECOND = 1;
     static constexpr int MAX_GENERATIONS_PER_SECOND = 120;
@@ -20,6 +23,7 @@ struct SimulationControls
     static constexpr int MAX_AGING_STAGES = 255;
     static constexpr int MAX_BRUSH_SIZE = 500;
 
+    int neighbor_radius = 1;
     bool aging_enabled = false;
     int aging_stages = 6;
     int brush_size = 1;
@@ -31,6 +35,6 @@ struct SimulationControls
     bool random_brush_hue = true;
     float brush_hue = 0.5f;
     float color_decay = 0.999f;
-    unsigned int birth_mask = 1u << 3;
-    unsigned int survival_mask = (1u << 2) | (1u << 3);
+    NeighborRule birth_mask{1u << 3};
+    NeighborRule survival_mask{(1u << 2) | (1u << 3)};
 };
