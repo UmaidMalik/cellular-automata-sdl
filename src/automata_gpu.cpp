@@ -11,10 +11,13 @@ namespace
 struct alignas(16) AutomataParams
 {
     int32_t width, height, range, wrap;
-    int32_t max_states, padding[3];
+    int32_t max_states;
+    float decay;
+    int32_t padding[2];
     uint32_t birth_low, birth_high, survival_low, survival_high;
 };
 static_assert(sizeof(AutomataParams) == 48);
+static_assert(sizeof(GpuCell) == 8);
 
 SDL_GPUGraphicsPipeline* CreatePipeline(SDL_GPUDevice* device, SDL_GPUShader* vertex,
     const char* fragment_name, Uint32 uniforms, SDL_GPUTextureFormat format)
@@ -60,7 +63,7 @@ AutomataGpu::~AutomataGpu()
 }
 
 bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int height,
-                             int max_states, std::span<const uint8_t> seed)
+                             int max_states, std::span<const GpuCell> seed)
 {
     m_width = width;
     m_height = height;
@@ -71,7 +74,7 @@ bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int
     if (!vertex)
         return false;
 
-    constexpr auto state_format = SDL_GPU_TEXTUREFORMAT_R8_UNORM;
+    constexpr auto state_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UNORM;
     m_display_pipeline = CreatePipeline(m_device, vertex, "grid_sample_rgba8.frag.spv", 0, display_format);
     if (m_display_pipeline)
         m_update_pipeline = CreatePipeline(m_device, vertex, "update_r1.frag.spv", 1, state_format);
@@ -106,14 +109,14 @@ bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int
     return m_sampler && UploadSeed(seed);
 }
 
-bool AutomataGpu::UploadSeed(std::span<const uint8_t> seed)
+bool AutomataGpu::UploadSeed(std::span<const GpuCell> seed)
 {
-    if (seed.size() != static_cast<size_t>(m_width) * m_height || seed.size() > UINT32_MAX)
+    if (seed.size() != static_cast<size_t>(m_width) * m_height || seed.size() > UINT32_MAX / sizeof(GpuCell))
         return SDL_SetError("Seed size does not match the GPU grid");
 
     SDL_GPUTransferBufferCreateInfo info{};
     info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    info.size = static_cast<Uint32>(seed.size());
+    info.size = static_cast<Uint32>(seed.size_bytes());
     auto* buffer = SDL_CreateGPUTransferBuffer(m_device, &info);
     if (!buffer)
         return false;
@@ -121,7 +124,7 @@ bool AutomataGpu::UploadSeed(std::span<const uint8_t> seed)
     bool submitted = false;
     if (void* data = SDL_MapGPUTransferBuffer(m_device, buffer, false))
     {
-        std::memcpy(data, seed.data(), seed.size());
+        std::memcpy(data, seed.data(), seed.size_bytes());
         SDL_UnmapGPUTransferBuffer(m_device, buffer);
 
         if (auto* commands = SDL_AcquireGPUCommandBuffer(m_device))
@@ -158,7 +161,7 @@ void AutomataGpu::Step(SDL_GPUCommandBuffer* commands, const SimulationControls&
 
     const AutomataParams params{
         m_width, m_height, SimulationControls::NEIGHBOR_RANGE, controls.wrap_edges,
-        m_max_states, {}, controls.birth_mask, 0, controls.survival_mask, 0
+        m_max_states, controls.color_decay, {}, controls.birth_mask, 0, controls.survival_mask, 0
     };
     SDL_PushGPUFragmentUniformData(commands, 0, &params, sizeof(params));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);

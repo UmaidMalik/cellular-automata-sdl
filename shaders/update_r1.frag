@@ -1,77 +1,66 @@
 #version 450
-layout (location = 0) out vec4 outState;
+layout(location = 0) out vec4 outState;
 layout(set = 2, binding = 0) uniform sampler2D uCurrent;
 layout(std140, set = 3, binding = 0) uniform Params
 {
-    ivec4 lane0;    // .x=W, .y=H, .z=range, .w=wrap
-    ivec4 lane1;    // .x=max_states
-    uvec4 lane2;    // .x=born_lo, .y=born_hi, .z=surv_lo, .w=surv_hi
+    ivec4 grid; // width, height, range, wrap
+    int maxStates;
+    float decay;
+    uvec4 rules; // birth low/high, survival low/high
 } U;
 
-#define W           (U.lane0.x)
-#define H           (U.lane0.y)
-#define RANGE       (U.lane0.z)
-#define WRAP        (U.lane0.w)
-#define MAX_STATE   (U.lane1.x)
-#define BORN_LO     (U.lane2.x)
-#define BORN_HI     (U.lane2.y)
-#define SURV_LO     (U.lane2.z)
-#define SURV_HI     (U.lane2.w)
-
-bool bit64(uint lo, uint hi, int i)
+bool matchesRule(uint lo, uint hi, int count)
 {
-    return (i < 32) ? (((lo >> uint(i)) & 1u) != 0u)
-                    : (((hi >> uint(i-32)) & 1u) != 0u);
+    return count < 32 ? (lo & (1u << uint(count))) != 0u
+                      : (hi & (1u << uint(count - 32))) != 0u;
 }
 
-int wrap_or_clamp(int v, int hi)
+ivec2 samplePosition(ivec2 position)
 {
-    return (WRAP == 1) ? ( (v % hi + hi) % hi ) : clamp(v, 0, hi - 1);
+    ivec2 size = U.grid.xy;
+    return U.grid.w != 0 ? (position % size + size) % size
+                         : clamp(position, ivec2(0), size - 1);
 }
 
-int read_state(ivec2 p)
+int readState(vec4 cell, int liveState)
 {
-    float r = texelFetch(uCurrent, p, 0).r;
-    int s_max = max(MAX_STATE - 1, 1);
-    int s = int(round(r * float(s_max)));
-    return clamp(s, 0, s_max);
+    return int(round(cell.a * float(liveState)));
 }
 
 void main()
 {
-    ivec2 p = ivec2(gl_FragCoord.xy);
-
-    int alive_top = max(MAX_STATE - 1, 1);
-    int n = 0;
-    for (int dy = -RANGE; dy <= RANGE; ++dy)
+    ivec2 position = ivec2(gl_FragCoord.xy);
+    int liveState = U.maxStates - 1;
+    int neighbors = 0;
+    float hueSum = 0.0;
+    for (int dy = -U.grid.z; dy <= U.grid.z; ++dy)
     {
-        for (int dx = -RANGE; dx <= RANGE; ++dx)
+        for (int dx = -U.grid.z; dx <= U.grid.z; ++dx)
         {
-            if (dx == 0 && dy == 0) continue;
-            ivec2 q = ivec2
-            (
-                wrap_or_clamp(p.x + dx, W),
-                wrap_or_clamp(p.y + dy, H)
-            );
-            n += (read_state(q) == alive_top) ? 1 : 0;
+            if (dx == 0 && dy == 0)
+                continue;
+            vec4 neighbor = texelFetch(uCurrent, samplePosition(position + ivec2(dx, dy)), 0);
+            if (readState(neighbor, liveState) == liveState)
+            {
+                ++neighbors;
+                hueSum += neighbor.r;
+            }
         }
     }
 
-    int s = read_state(p);
-    int next;
-    if (s == 0)
+    vec4 cell = texelFetch(uCurrent, position, 0);
+    int state = readState(cell, liveState);
+    bool born = state == 0 && matchesRule(U.rules.x, U.rules.y, neighbors);
+    bool survives = state == liveState && matchesRule(U.rules.z, U.rules.w, neighbors);
+    if (state == 0 && !born)
     {
-        next = bit64(BORN_LO, BORN_HI, n) ? alive_top : 0;
-    }
-    else if (s == alive_top)
-    {
-        next = bit64(SURV_LO, SURV_HI, n) ? alive_top : (s - 1);
-    }
-    else
-    {
-        next = s - 1;
+        // Round down to prevent small decay steps from getting stuck at a nonzero UNORM value.
+        float value = floor(round(cell.b * 65535.0) * U.decay) / 65535.0;
+        outState = vec4(cell.r, 1.0, value, 0.0);
+        return;
     }
 
-    float r = float(next) / float(alive_top);
-    outState = vec4(r, 0.0, 0.0, 1.0);
+    int nextState = born || survives ? liveState : state - 1;
+    float hue = neighbors > 0 ? hueSum / float(neighbors) : 0.0;
+    outState = vec4(hue, 1.0, 1.0, float(nextState) / float(liveState));
 }

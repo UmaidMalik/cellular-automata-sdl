@@ -17,6 +17,7 @@ struct SimulationControls
 
     bool paused = false;
     bool wrap_edges = true;
+    float color_decay = 0.999f;
     unsigned int birth_mask = (1u << 2) | (1u << 3);
     unsigned int survival_mask = 1u << 2;
 };

@@ -2,7 +2,6 @@
 #include <array>
 #include <vector>
 #include "automata_gpu.hpp"
-#include "automata_simulator.hpp"
 #include "config.hpp"
 #include "event_handler.hpp"
 #include "imgui_manager.hpp"
@@ -12,38 +11,31 @@
 
 namespace
 {
-std::vector<uint8_t> MakeSeed(const SimulationControls& controls)
+std::vector<GpuCell> MakeSeed()
 {
-    AutomataSimulator simulator(config::GRID_WIDTH, config::GRID_HEIGHT);
-    uset birth, survival;
-    for (int count = 0; count <= SimulationControls::MAX_NEIGHBORS; ++count)
+    struct SeedCell
     {
-        if (controls.birth_mask & (1u << count))
-            birth.insert(count);
-        if (controls.survival_mask & (1u << count))
-            survival.insert(count);
-    }
-    simulator.SetRule(birth, survival, SimulationControls::NEIGHBOR_RANGE, config::MAX_STATES);
-    simulator.SetDecay(0.0f);
+        int x;
+        int y;
+        uint16_t hue;
+    };
 
-    const std::array<math::ivec2, 12> positions{{
-        {1, 3}, {2, 3}, {3, 3}, {12, 24}, {14, 24}, {15, 25},
-        {15, 26}, {15, 27}, {12, 27}, {13, 28}, {14, 28}, {15, 28}
+    constexpr uint16_t violet = 52428; // 0.8
+    constexpr uint16_t cyan = 32768;   // 0.5
+    constexpr uint16_t green = 16384;  // 0.25
+    constexpr std::array<SeedCell, 12> positions{{
+        {1, 3, violet}, {2, 3, cyan}, {3, 3, green},
+        {12, 24, green}, {14, 24, green}, {15, 25, green},
+        {15, 26, green}, {12, 27, green}, {15, 27, green},
+        {13, 28, green}, {14, 28, green}, {15, 28, green}
     }};
-    auto& grid = *simulator.GetGrid();
-    for (const auto position : positions)
+
+    std::vector<GpuCell> seed(static_cast<size_t>(config::GRID_WIDTH) * config::GRID_HEIGHT);
+    for (const auto& cell : positions)
     {
-        if (!simulator.IsOutOfBounds(position))
-            grid[simulator.GetIndex(position)].state = 1;
+        if (cell.x < config::GRID_WIDTH && cell.y < config::GRID_HEIGHT)
+            seed[cell.x + cell.y * config::GRID_WIDTH] = {cell.hue, 26214, UINT16_MAX, UINT16_MAX};
     }
-
-    simulator.Step();
-    simulator.Step();
-
-    std::vector<uint8_t> seed;
-    seed.reserve(grid.size());
-    for (const auto& cell : grid)
-        seed.push_back(cell.state != 0 ? 255 : 0);
     return seed;
 }
 
@@ -64,7 +56,7 @@ int main()
     Renderer renderer(&window);
     AutomataGpu automata(window.GetGPUDevice());
     if (!automata.Initialize(renderer.GetSwapchainFormat(), config::GRID_WIDTH, config::GRID_HEIGHT,
-                             config::MAX_STATES, MakeSeed(controls)))
+                             config::MAX_STATES, MakeSeed()))
         return ReportError("Initializing GPU simulation");
 
     ImGuiManager imgui(&window);

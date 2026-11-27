@@ -190,6 +190,7 @@ bool ImGuiManager::Build(SimulationControls& controls)
 
         EditRule("Birth neighbors", controls.birth_mask);
         EditRule("Survival neighbors", controls.survival_mask);
+        ImGui::SliderFloat("Color retention", &controls.color_decay, 0.0f, 1.0f, "%.3f");
         ImGui::Text("%.1f FPS", m_imgui_io->Framerate);
     }
     ImGui::End();
