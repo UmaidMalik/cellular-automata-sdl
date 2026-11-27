@@ -7,6 +7,7 @@
   <style>
     html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: #fff; }
     canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; outline: none; touch-action: none; }
+    canvas:fullscreen { width: 100vw !important; height: 100vh !important; height: 100dvh !important; margin: 0 !important; padding: 0 !important; }
     #status { position: fixed; inset: 1rem auto auto 1rem; font: 1rem system-ui, sans-serif; }
   </style>
 </head>
@@ -16,9 +17,6 @@
   <script>
     const canvas = document.getElementById("canvas");
     const statusMessage = document.getElementById("status");
-    // Mobile browser chrome can change the CSS size after the window resize.
-    // Let SDL update its window size and framebuffer when the canvas settles.
-    new ResizeObserver(() => window.dispatchEvent(new Event("resize"))).observe(canvas);
     canvas.addEventListener("contextmenu", event => event.preventDefault());
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && document.fullscreenElement?.contains(canvas)) {
@@ -36,6 +34,12 @@
         }
       }
     };
+    const notifyCanvasResize = () => {
+      Module.canvasResizePending = true;
+    };
+    new ResizeObserver(notifyCanvasResize).observe(canvas);
+    window.addEventListener("resize", notifyCanvasResize);
+    document.addEventListener("fullscreenchange", notifyCanvasResize);
   </script>
   {{{ SCRIPT }}}
 </body>

@@ -1,6 +1,9 @@
 #include "window.hpp"
 #include <SDL3/SDL.h>
 #include <iostream>
+#ifdef __EMSCRIPTEN__
+#include <emscripten/html5.h>
+#endif
 
 Window::Window(int width, int height, const char* title)
     : m_width(width), m_height(height), m_window_title(title)
@@ -84,6 +87,43 @@ SDL_Window* Window::GetSDLWindow() const
 SDL_GLContext Window::GetGLContext() const
 {
     return m_gl_context;
+}
+
+void Window::SyncBrowserCanvas()
+{
+    if (!EM_ASM_INT({
+        const pending = Module['canvasResizePending'];
+        Module['canvasResizePending'] = false;
+        return pending ? 1 : 0;
+    }))
+        return;
+
+    double css_width = 0.0;
+    double css_height = 0.0;
+    if (emscripten_get_element_css_size("#canvas", &css_width, &css_height) != EMSCRIPTEN_RESULT_SUCCESS)
+        return;
+
+    const int width = SDL_lround(css_width);
+    const int height = SDL_lround(css_height);
+    if (width <= 0 || height <= 0)
+        return;
+
+    int window_width = 0;
+    int window_height = 0;
+    SDL_GetWindowSize(m_sdl_window, &window_width, &window_height);
+    int canvas_width = 0;
+    int canvas_height = 0;
+    emscripten_get_canvas_element_size("#canvas", &canvas_width, &canvas_height);
+    const double pixel_ratio = emscripten_get_device_pixel_ratio();
+
+    // SDL's browser resize callback skips fullscreen. Apply the observed
+    // canvas size explicitly so SDL input and the WebGL backing agree.
+    if (window_width != width || window_height != height ||
+        canvas_width != SDL_lround(width * pixel_ratio) ||
+        canvas_height != SDL_lround(height * pixel_ratio))
+    {
+        SDL_SetWindowSize(m_sdl_window, width, height);
+    }
 }
 #else
 SDL_GPUDevice* Window::GetGPUDevice() const
