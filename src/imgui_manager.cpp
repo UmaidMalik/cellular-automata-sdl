@@ -262,7 +262,7 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
                 controls.erase_brush = true;
         }
         ImGui::End();
-        ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_Appearing);
+        ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_Always);
         ImGui::SetNextWindowCollapsed(true, ImGuiCond_Once);
         ImGui::SetNextWindowSizeConstraints(ImVec2(0.0f, 0.0f),
             ImVec2(std::max(1.0f, screen.x - 16.0f), std::max(1.0f, screen.y - 64.0f)));
