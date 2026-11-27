@@ -38,7 +38,8 @@ as living neighbors.
 
 The grid starts empty and paused at 4x zoom so individual cells are visible.
 Hold the left mouse button and drag to paint living cells. **Brush size**
-sets the width and height of the square brush in cells. **Random hue per
+sets the diameter of the circular brush in cells. A cell is painted if its
+center is inside or on the circle. **Random hue per
 stroke** picks a different color for every drag. Turn it off to use **Brush
 hue** instead. Scroll over the grid to zoom around the pointer,
 or use **Zoom** to zoom around the center. Hold the right mouse button and

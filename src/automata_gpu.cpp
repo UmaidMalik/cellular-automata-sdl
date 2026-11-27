@@ -150,6 +150,22 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
         return true;
 
     const int half = size / 2;
+    // Measure from cell centers in doubled coordinates so even diameters
+    // can be centered between cells. Their outermost rows still get two cells.
+    const int diameter = size - 1;
+    const int radius_squared = diameter * diameter + (size % 2 == 0 ? 1 : 0);
+    std::array<int, SimulationControls::MAX_BRUSH_SIZE> insets{};
+    for (int y = 0; y < size; ++y)
+    {
+        const int dy = 2 * y - diameter;
+        int x = diameter;
+        while (x * x + dy * dy > radius_squared)
+        {
+            ++insets[y];
+            x -= 2;
+        }
+    }
+
     const auto bounds = std::ranges::minmax_element(stroke, {}, &SDL_Point::y);
     const int top = std::max(0, bounds.min->y - half);
     const int bottom = std::min(m_height, bounds.max->y - half + size);
@@ -164,16 +180,22 @@ bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Poin
     std::vector<Row> rows(bottom - top, Row{m_width, 0});
     for (const auto cell : stroke)
     {
-        const int left = std::max(0, cell.x - half);
-        const int right = std::min(m_width, cell.x - half + size);
-        const int first_row = std::max(0, cell.y - half);
-        const int end_row = std::min(m_height, cell.y - half + size);
+        const int stamp_left = cell.x - half;
+        const int stamp_top = cell.y - half;
+        const int first_row = std::max(0, stamp_top);
+        const int end_row = std::min(m_height, stamp_top + size);
 
         for (int y = first_row; y < end_row; ++y)
         {
-            Row& row = rows[y - top];
-            row.left = std::min(row.left, left);
-            row.right = std::max(row.right, right);
+            const int inset = insets[y - stamp_top];
+            const int left = std::max(0, stamp_left + inset);
+            const int right = std::min(m_width, stamp_left + size - inset);
+            if (left < right)
+            {
+                Row& row = rows[y - top];
+                row.left = std::min(row.left, left);
+                row.right = std::max(row.right, right);
+            }
         }
     }
 
