@@ -17,11 +17,10 @@ public:
     AutomataGpu(const AutomataGpu&) = delete;
     AutomataGpu& operator=(const AutomataGpu&) = delete;
 
-    bool Initialize(SDL_GPUTextureFormat display_format, int width, int height,
-                    int max_states);
+    bool Initialize(SDL_GPUTextureFormat display_format, int width, int height);
     void Clear(SDL_GPUCommandBuffer* commands);
     void Step(SDL_GPUCommandBuffer* commands, const SimulationControls& controls);
-    bool Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> cells, float hue);
+    bool Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> stroke, float hue, int size);
     void Draw(SDL_GPUCommandBuffer* commands, SDL_GPURenderPass* pass, const GridView& view) const;
 
 private:
@@ -34,5 +33,5 @@ private:
     SDL_GPUGraphicsPipeline* m_update_pipeline = nullptr;
     int m_width = 0;
     int m_height = 0;
-    int m_max_states = 0;
+    Uint32 m_brush_pitch = 0;
 };

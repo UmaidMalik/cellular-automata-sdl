@@ -222,8 +222,15 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom)
 
         EditRule("Birth neighbors", controls.birth_mask);
         EditRule("Survival neighbors", controls.survival_mask);
+        ImGui::Checkbox("Aging states", &controls.aging_enabled);
+        ImGui::BeginDisabled(!controls.aging_enabled);
+        ImGui::SliderInt("Max aging stages", &controls.aging_stages, 1, SimulationControls::MAX_AGING_STAGES,
+                         "%d", ImGuiSliderFlags_AlwaysClamp);
+        ImGui::EndDisabled();
         ImGui::SliderFloat("Zoom", &zoom, GridView::MIN_ZOOM, GridView::MAX_ZOOM,
                            "%.1fx", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
+        ImGui::SliderInt("Brush size", &controls.brush_size, 1, SimulationControls::MAX_BRUSH_SIZE,
+                         "%d cells", ImGuiSliderFlags_AlwaysClamp);
         ImGui::Checkbox("Random hue per stroke", &controls.random_brush_hue);
         ImGui::BeginDisabled(controls.random_brush_hue);
         ImGui::SliderFloat("Brush hue", &controls.brush_hue, 0.0f, 1.0f, "%.2f",

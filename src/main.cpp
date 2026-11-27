@@ -64,8 +64,7 @@ int main()
     bool panning = false;
     Renderer renderer(&window);
     AutomataGpu automata(window.GetGPUDevice());
-    if (!automata.Initialize(renderer.GetSwapchainFormat(), config::GRID_WIDTH, config::GRID_HEIGHT,
-                             config::MAX_STATES))
+    if (!automata.Initialize(renderer.GetSwapchainFormat(), config::GRID_WIDTH, config::GRID_HEIGHT))
         return ReportError("Initializing GPU simulation");
 
     ImGuiManager imgui(&window);
@@ -195,7 +194,7 @@ int main()
                 for (int step = 0; step < steps; ++step)
                     automata.Step(commands, controls);
             }
-            if (!automata.Paint(commands, stroke, paint_hue))
+            if (!automata.Paint(commands, stroke, paint_hue, controls.brush_size))
             {
                 // A command buffer with an acquired swapchain must be submitted.
                 renderer.SubmitCommandBuffer();

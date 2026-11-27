@@ -4,25 +4,27 @@
 #include "shader_loader.hpp"
 
 #include <SDL3/SDL.h>
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <utility>
+#include <vector>
 
 namespace
 {
 struct alignas(16) AutomataParams
 {
     int32_t width, height, range, wrap;
-    int32_t max_states;
+    int32_t aging_stages;
     float decay;
     int32_t padding[2];
     uint32_t birth_low, birth_high, survival_low, survival_high;
 };
 static_assert(sizeof(AutomataParams) == 48);
-// A single HSV/state texel, with a D3D12-compatible upload row pitch.
-constexpr Uint32 BRUSH_ROW_BYTES = 256;
-constexpr Uint32 BYTES_PER_TEXEL = 4 * sizeof(uint16_t);
+using BrushTexel = std::array<uint16_t, 4>;
+constexpr Uint32 BRUSH_ROW_ALIGNMENT = 256;
+static_assert(sizeof(BrushTexel) == 8);
 
 SDL_GPUGraphicsPipeline* CreatePipeline(SDL_GPUDevice* device, SDL_GPUShader* vertex,
     const char* fragment_name, Uint32 uniforms, SDL_GPUTextureFormat format)
@@ -69,12 +71,10 @@ AutomataGpu::~AutomataGpu()
         SDL_ReleaseGPUTexture(m_device, m_current);
 }
 
-bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int height,
-                             int max_states)
+bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int height)
 {
     m_width = width;
     m_height = height;
-    m_max_states = max_states;
 
     SDL_GPUShader* vertex = LoadSpirvShader(
         m_device, "grid_fullscreen_triangle.vert.spv", SDL_GPU_SHADERSTAGE_VERTEX);
@@ -116,7 +116,11 @@ bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int
     if (!m_sampler)
         return false;
 
-    const SDL_GPUTransferBufferCreateInfo brush_info{SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, BRUSH_ROW_BYTES};
+    const Uint32 row_bytes = width * sizeof(BrushTexel);
+    const Uint32 aligned_bytes =
+        (row_bytes + BRUSH_ROW_ALIGNMENT - 1) / BRUSH_ROW_ALIGNMENT * BRUSH_ROW_ALIGNMENT;
+    m_brush_pitch = aligned_bytes / sizeof(BrushTexel);
+    const SDL_GPUTransferBufferCreateInfo brush_info{SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, aligned_bytes};
     m_brush = SDL_CreateGPUTransferBuffer(m_device, &brush_info);
     if (!m_brush)
         return false;
@@ -139,34 +143,70 @@ void AutomataGpu::Clear(SDL_GPUCommandBuffer* commands)
     SDL_EndGPURenderPass(pass);
 }
 
-bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> cells, float hue)
+bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> stroke,
+                        float hue, int size)
 {
-    if (cells.empty())
+    if (stroke.empty())
         return true;
 
-    void* data = SDL_MapGPUTransferBuffer(m_device, m_brush, true);
+    const int half = size / 2;
+    const auto bounds = std::ranges::minmax_element(stroke, {}, &SDL_Point::y);
+    const int top = std::max(0, bounds.min->y - half);
+    const int bottom = std::min(m_height, bounds.max->y - half + size);
+
+    // The stroke centers form a contiguous line. Merge overlapping stamps
+    // into one upload per row instead of issuing a copy for every cell.
+    struct Row
+    {
+        int left;
+        int right;
+    };
+    std::vector<Row> rows(bottom - top, Row{m_width, 0});
+    for (const auto cell : stroke)
+    {
+        const int left = std::max(0, cell.x - half);
+        const int right = std::min(m_width, cell.x - half + size);
+        const int first_row = std::max(0, cell.y - half);
+        const int end_row = std::min(m_height, cell.y - half + size);
+
+        for (int y = first_row; y < end_row; ++y)
+        {
+            Row& row = rows[y - top];
+            row.left = std::min(row.left, left);
+            row.right = std::max(row.right, right);
+        }
+    }
+
+    auto* data = static_cast<BrushTexel*>(SDL_MapGPUTransferBuffer(m_device, m_brush, true));
     if (!data)
         return false;
 
-    const uint16_t texel[]{
+    const BrushTexel texel{
         static_cast<uint16_t>(std::lround(hue * UINT16_MAX)), UINT16_MAX, UINT16_MAX, UINT16_MAX
     };
-    std::memcpy(data, texel, sizeof(texel));
+    int max_width = 0;
+    for (const auto row : rows)
+        max_width = std::max(max_width, row.right - row.left);
+    std::fill_n(data, max_width, texel);
     SDL_UnmapGPUTransferBuffer(m_device, m_brush);
 
     auto* pass = SDL_BeginGPUCopyPass(commands);
     SDL_GPUTextureTransferInfo source{};
     source.transfer_buffer = m_brush;
-    source.pixels_per_row = BRUSH_ROW_BYTES / BYTES_PER_TEXEL;
+    source.pixels_per_row = m_brush_pitch;
     source.rows_per_layer = 1;
 
     SDL_GPUTextureRegion destination{};
     destination.texture = m_current;
-    destination.w = destination.h = destination.d = 1;
-    for (const auto cell : cells)
+    destination.h = destination.d = 1;
+    for (int y = top; y < bottom; ++y)
     {
-        destination.x = cell.x;
-        destination.y = cell.y;
+        const auto row = rows[y - top];
+        if (row.left >= row.right)
+            continue;
+        destination.x = row.left;
+        destination.y = y;
+        destination.w = row.right - row.left;
         SDL_UploadToGPUTexture(pass, &source, &destination, false);
     }
     SDL_EndGPUCopyPass(pass);
@@ -187,7 +227,7 @@ void AutomataGpu::Step(SDL_GPUCommandBuffer* commands, const SimulationControls&
 
     const AutomataParams params{
         m_width, m_height, SimulationControls::NEIGHBOR_RANGE, controls.wrap_edges,
-        m_max_states, controls.color_decay, {}, controls.birth_mask, 0, controls.survival_mask, 0
+        controls.aging_enabled ? controls.aging_stages : 0, controls.color_decay, {}, controls.birth_mask, 0, controls.survival_mask, 0
     };
     SDL_PushGPUFragmentUniformData(commands, 0, &params, sizeof(params));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
