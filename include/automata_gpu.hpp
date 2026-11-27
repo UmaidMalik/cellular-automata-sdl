@@ -21,7 +21,7 @@ public:
     void Clear(SDL_GPUCommandBuffer* commands);
     void Step(SDL_GPUCommandBuffer* commands, const SimulationControls& controls);
     bool Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> stroke, float hue, int size, Uint32 seed);
-    void Draw(SDL_GPUCommandBuffer* commands, SDL_GPURenderPass* pass, const GridView& view) const;
+    void Draw(SDL_GPUCommandBuffer* commands, SDL_GPURenderPass* pass, const GridView& view, float saturation) const;
 
 private:
     SDL_GPUDevice* m_device;

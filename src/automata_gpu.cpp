@@ -296,12 +296,12 @@ void AutomataGpu::Step(SDL_GPUCommandBuffer* commands, const SimulationControls&
     std::swap(m_current, m_next);
 }
 
-void AutomataGpu::Draw(SDL_GPUCommandBuffer* commands, SDL_GPURenderPass* pass, const GridView& view) const
+void AutomataGpu::Draw(SDL_GPUCommandBuffer* commands, SDL_GPURenderPass* pass, const GridView& view, float saturation) const
 {
     SDL_BindGPUGraphicsPipeline(pass, m_display_pipeline);
     const SDL_GPUTextureSamplerBinding binding{m_current, m_sampler};
     SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
-    const float viewport[]{view.left, view.top, 1.0f / view.zoom, 0.0f};
+    const float viewport[]{view.left, view.top, 1.0f / view.zoom, saturation};
     SDL_PushGPUFragmentUniformData(commands, 0, viewport, sizeof(viewport));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
 }

@@ -237,7 +237,7 @@ int main()
             renderer.SetColorTargetInfo(math::RGBAColor(0.0f, 0.0f, 0.0f, 1.0f));
             renderer.BeginRenderPass();
             auto* pass = renderer.GetRenderPass();
-            automata.Draw(commands, pass, view);
+            automata.Draw(commands, pass, view, controls.color_saturation / 100.0f);
             imgui.Draw(pass, commands);
             renderer.EndRenderPass();
         }

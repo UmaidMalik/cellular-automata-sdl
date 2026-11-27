@@ -270,6 +270,8 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom)
         ImGui::SliderFloat("Brush hue", &controls.brush_hue, 0.0f, 1.0f, "%.2f",
                            ImGuiSliderFlags_AlwaysClamp);
         ImGui::EndDisabled();
+        ImGui::SliderInt("Color saturation", &controls.color_saturation, 0, 100,
+                         "%d%%", ImGuiSliderFlags_AlwaysClamp);
         EditColorRetention(controls.color_decay);
         ImGui::Text("%.1f FPS", m_imgui_io->Framerate);
     }

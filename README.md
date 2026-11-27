@@ -41,7 +41,8 @@ per generation. The panel shows both the decimal value and its percentage.
 The slider gives finer control near 1, where small changes
 make trails last much longer. Set it to 0 for immediate fading on the next
 dead generation, or to 1 to keep the trail visible. Fading cells do not count
-as living neighbors.
+as living neighbors. **Color saturation** adjusts the display from
+grayscale (0%) to full color (100%), without changing inherited hues.
 
 The grid starts empty and paused at 4x zoom so individual cells are visible.
 Hold the left mouse button and drag to paint living cells. **Brush size**

@@ -34,6 +34,7 @@ struct SimulationControls
     bool wrap_edges = true;
     bool random_brush_hue = true;
     float brush_hue = 0.5f;
+    int color_saturation = 100;
     float color_decay = 0.999f;
     NeighborRule birth_mask{1u << 3};
     NeighborRule survival_mask{(1u << 2) | (1u << 3)};
