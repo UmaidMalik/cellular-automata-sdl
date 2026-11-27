@@ -19,13 +19,13 @@ class Renderer
         ~Renderer();
         void AcquireCommandBuffer();
         SDL_GPUCommandBuffer* GetCommandBuffer();
-        void AcquireSwapchainTexture();
+        bool AcquireSwapchainTexture();
         SDL_GPUTexture* GetSwapchainTexture();
         void SetColorTargetInfo(math::RGBAColor clear_color);
         void BeginRenderPass();
         SDL_GPURenderPass* GetRenderPass();
         void EndRenderPass();
-        void SubmitCommandBuffer();
+        bool SubmitCommandBuffer();
         SDL_GPUTextureFormat GetSwapchainFormat() const;
 
 };
@@ -51,9 +51,10 @@ SDL_GPUCommandBuffer* Renderer::GetCommandBuffer()
     return m_command_buffer;
 }
 
-void Renderer::AcquireSwapchainTexture()
+bool Renderer::AcquireSwapchainTexture()
 {
-    SDL_WaitAndAcquireGPUSwapchainTexture(m_command_buffer, m_window->GetSDLWindow(), &m_swapchain_texture, nullptr, nullptr);
+    m_swapchain_texture = nullptr;
+    return SDL_WaitAndAcquireGPUSwapchainTexture(m_command_buffer, m_window->GetSDLWindow(), &m_swapchain_texture, nullptr, nullptr);
 }
 
 SDL_GPUTexture* Renderer::GetSwapchainTexture()
@@ -88,9 +89,9 @@ void Renderer::EndRenderPass()
     SDL_EndGPURenderPass(m_render_pass);
 }
 
-void Renderer::SubmitCommandBuffer()
+bool Renderer::SubmitCommandBuffer()
 {
-    SDL_SubmitGPUCommandBuffer(m_command_buffer);
+    return SDL_SubmitGPUCommandBuffer(m_command_buffer);
 }
 
 SDL_GPUTextureFormat Renderer::GetSwapchainFormat() const

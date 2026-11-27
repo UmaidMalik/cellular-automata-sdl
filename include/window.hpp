@@ -8,10 +8,11 @@ class Window
         int m_width;
         int m_height;
         const char* m_window_title;
-        SDL_Window* m_sdl_window;
-        SDL_GPUDevice* m_gpu_device;
+        SDL_Window* m_sdl_window = nullptr;
+        SDL_GPUDevice* m_gpu_device = nullptr;
+        bool m_window_claimed = false;
         float m_main_scale;
-        bool m_running;
+        bool m_running = false;
     public:
         Window(int width, int height, const char* title);
         ~Window();

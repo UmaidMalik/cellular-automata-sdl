@@ -1,3 +1,4 @@
+#include "config.hpp"
 #include "imgui_manager.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -26,8 +27,9 @@ ImGuiManager::~ImGuiManager()
         SDL_WaitForGPUIdle(m_window->GetGPUDevice());
     }
 
-    ShutdownBackends();
     ImGui::SetCurrentContext(m_context);
+    if (m_backends_ready)
+        ShutdownBackends();
     ImGui::DestroyContext(m_context);
 
     m_context = nullptr;
@@ -80,18 +82,18 @@ void ImGuiManager::SetupScaling()
     m_imgui_io->FontGlobalScale = scale; // Set initial font scale. (using io.ConfigDpiScaleFonts=true makes this unnecessary. We leave both here for documentation purpose)
 }
 
-void ImGuiManager::SetupBackends()
+bool ImGuiManager::SetupBackends()
 {
     if (!m_window)
     {
         std::cerr << "Error: ImGuiManager::SetupBackends(): window is null\n";
-        return;
+        return false;
     }
 
     if (!ImGui_ImplSDL3_InitForSDLGPU(m_window->GetSDLWindow()))
     {
         std::cerr << "Error: ImGui_ImplSDL3_InitForSDLGPU() failed\n";
-        return;
+        return false;
     }
 
     m_init_info = {};
@@ -109,8 +111,10 @@ void ImGuiManager::SetupBackends()
     {
         std::cerr << "Error: ImGui_ImplSDLGPU3_Init() failed\n";
         ImGui_ImplSDL3_Shutdown();
-        return;
+        return false;
     }
+    m_backends_ready = true;
+    return true;
 }
 
 void ImGuiManager::LoadFonts(const char* font_path, float font_size)
@@ -151,39 +155,46 @@ void ImGuiManager::BeginFrame()
     ImGui::NewFrame();
 }
 
-void ImGuiManager::Build()
+namespace
 {
-    if (m_ui_control.show_demo_window)
+void EditRule(const char* label, unsigned int& mask)
+{
+    ImGui::TextUnformatted(label);
+    ImGui::PushID(label);
+    for (int count = 0; count <= SimulationControls::MAX_NEIGHBORS; ++count)
     {
-        ShowDemoWindow();
+        if (count > 0)
+            ImGui::SameLine();
+        const char text[] = {static_cast<char>('0' + count), '\0'};
+        ImGui::CheckboxFlags(text, &mask, 1u << count);
     }
-    
+    ImGui::PopID();
+}
+}
+
+bool ImGuiManager::Build(SimulationControls& controls)
+{
+    bool step = false;
+    if (ImGui::Begin("Simulation", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
-        static float f = 0.0f;
-        static int8_t counter = 120;
-
-        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
-        ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-        ImGui::Checkbox("Demo Window", & m_ui_control.show_demo_window);      // Edit bools storing our window open/close state
-        if (ImGui::Checkbox("Fullscreen", &m_ui_control.set_fullscreen))
-        {
-            m_window->SetFullscreen(m_ui_control.set_fullscreen);
-        }
-
-        ImGui::SliderFloat("float", &f, 0.0f, 77.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-        //ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-    
-        if (ImGui::Button("Button"))
-        {
-            counter++;
-        }
+        ImGui::Checkbox("Paused", &controls.paused);
         ImGui::SameLine();
-        ImGui::Text("counter = %d", counter);
+        ImGui::BeginDisabled(!controls.paused);
+        step = ImGui::Button("Step");
+        ImGui::EndDisabled();
 
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / m_imgui_io->Framerate, m_imgui_io->Framerate);
-        ImGui::End();
+        ImGui::Checkbox("Wrap edges", &controls.wrap_edges);
+        bool fullscreen = (SDL_GetWindowFlags(m_window->GetSDLWindow()) & SDL_WINDOW_FULLSCREEN) != 0;
+        if (ImGui::Checkbox("Fullscreen", &fullscreen))
+            m_window->SetFullscreen(fullscreen);
+
+        EditRule("Birth neighbors", controls.birth_mask);
+        EditRule("Survival neighbors", controls.survival_mask);
+        ImGui::SliderFloat("Color retention", &controls.color_decay, 0.0f, 1.0f, "%.3f");
+        ImGui::Text("%.1f FPS", m_imgui_io->Framerate);
     }
+    ImGui::End();
+    return step;
 }
 
 void ImGuiManager::Prepare(SDL_GPUCommandBuffer* command_buffer)
@@ -195,12 +206,6 @@ void ImGuiManager::Prepare(SDL_GPUCommandBuffer* command_buffer)
 void ImGuiManager::Draw(SDL_GPURenderPass* render_pass, SDL_GPUCommandBuffer* command_buffer)
 {
     ImGui_ImplSDLGPU3_RenderDrawData(m_draw_data, command_buffer, render_pass);
-}
-
-// NOTE: For learning ImGui, will delete when not needed
-void ImGuiManager::ShowDemoWindow()
-{
-    ImGui::ShowDemoWindow(&m_ui_control.show_demo_window);
 }
 
 void ImGuiManager::EndFrame()
