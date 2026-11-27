@@ -1,42 +1,43 @@
 #include <SDL3/SDL.h>
-#include <array>
+#include <cmath>
+#include <optional>
 #include <vector>
 #include "automata_gpu.hpp"
 #include "config.hpp"
 #include "event_handler.hpp"
+#include "grid_view.hpp"
 #include "imgui_manager.hpp"
 #include "logger.hpp"
 #include "renderer.hpp"
+#include "simulation_clock.hpp"
 #include "window.hpp"
 
 namespace
 {
-std::vector<GpuCell> MakeSeed()
+void AddStroke(std::vector<SDL_Point>& cells, SDL_Point start, SDL_Point end)
 {
-    struct SeedCell
+    const int dx = std::abs(end.x - start.x);
+    const int dy = -std::abs(end.y - start.y);
+    const int step_x = start.x < end.x ? 1 : -1;
+    const int step_y = start.y < end.y ? 1 : -1;
+    int error = dx + dy;
+    for (;;)
     {
-        int x;
-        int y;
-        uint16_t hue;
-    };
-
-    constexpr uint16_t violet = 52428; // 0.8
-    constexpr uint16_t cyan = 32768;   // 0.5
-    constexpr uint16_t green = 16384;  // 0.25
-    constexpr std::array<SeedCell, 12> positions{{
-        {1, 3, violet}, {2, 3, cyan}, {3, 3, green},
-        {12, 24, green}, {14, 24, green}, {15, 25, green},
-        {15, 26, green}, {12, 27, green}, {15, 27, green},
-        {13, 28, green}, {14, 28, green}, {15, 28, green}
-    }};
-
-    std::vector<GpuCell> seed(static_cast<size_t>(config::GRID_WIDTH) * config::GRID_HEIGHT);
-    for (const auto& cell : positions)
-    {
-        if (cell.x < config::GRID_WIDTH && cell.y < config::GRID_HEIGHT)
-            seed[cell.x + cell.y * config::GRID_WIDTH] = {cell.hue, 26214, UINT16_MAX, UINT16_MAX};
+        cells.push_back(start);
+        if (start.x == end.x && start.y == end.y)
+            break;
+        const int twice_error = 2 * error;
+        if (twice_error >= dy)
+        {
+            error += dy;
+            start.x += step_x;
+        }
+        if (twice_error <= dx)
+        {
+            error += dx;
+            start.y += step_y;
+        }
     }
-    return seed;
 }
 
 int ReportError(const char* action)
@@ -53,10 +54,18 @@ int main()
         return 1;
 
     SimulationControls controls;
+    GridView view;
+    view.SetZoom(GridView::DEFAULT_ZOOM, 0.5f, 0.5f);
+    std::optional<SDL_Point> previous_cell;
+    std::vector<SDL_Point> stroke;
+    float paint_hue = controls.brush_hue;
+    bool stroke_has_color = false;
+    bool reset_pending = false;
+    bool panning = false;
     Renderer renderer(&window);
     AutomataGpu automata(window.GetGPUDevice());
     if (!automata.Initialize(renderer.GetSwapchainFormat(), config::GRID_WIDTH, config::GRID_HEIGHT,
-                             config::MAX_STATES, MakeSeed()))
+                             config::MAX_STATES))
         return ReportError("Initializing GPU simulation");
 
     ImGuiManager imgui(&window);
@@ -68,19 +77,87 @@ int main()
     EventHandler events(&window, &imgui);
     SDL_ShowWindow(window.GetSDLWindow());
     window.StartRun();
+    SimulationClock clock;
+    Uint64 previous_frame = SDL_GetTicksNS();
     while (window.IsRunning())
     {
+        const Uint64 now = SDL_GetTicksNS();
+        const double elapsed_seconds = static_cast<double>(now - previous_frame) / SDL_NS_PER_SECOND;
+        previous_frame = now;
         events.ProcessEvents();
         if (!window.IsRunning())
             break;
         if (SDL_GetWindowFlags(window.GetSDLWindow()) & SDL_WINDOW_MINIMIZED)
         {
+            previous_cell.reset();
+            panning = false;
+            stroke_has_color = false;
+            clock.Reset();
             SDL_Delay(10);
             continue;
         }
 
         imgui.BeginFrame();
-        const bool single_step = imgui.Build(controls);
+        float zoom = view.zoom;
+        const auto action = imgui.Build(controls, zoom);
+        reset_pending = reset_pending || action == SimulationAction::Reset;
+        if (zoom != view.zoom)
+        {
+            view.SetZoom(zoom, 0.5f, 0.5f);
+            previous_cell.reset();
+        }
+
+        const auto& io = *imgui.GetIO();
+        const ImVec2 mouse = io.MousePos;
+        const ImVec2 screen = io.DisplaySize;
+        stroke.clear();
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            stroke_has_color = false;
+
+        const bool over_grid = !io.WantCaptureMouse && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) &&
+            mouse.x >= 0.0f && mouse.y >= 0.0f &&
+            mouse.x < screen.x && mouse.y < screen.y;
+
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Right))
+            panning = false;
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+            panning = over_grid;
+        else if (panning && screen.x > 0.0f && screen.y > 0.0f)
+            view.Pan(io.MouseDelta.x / screen.x, io.MouseDelta.y / screen.y);
+
+        if (over_grid && !panning)
+        {
+            const float x = mouse.x / screen.x;
+            const float y = mouse.y / screen.y;
+            if (io.MouseWheel != 0.0f)
+            {
+                view.SetZoom(view.zoom * std::pow(1.2f, io.MouseWheel), x, y);
+                previous_cell.reset();
+            }
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+                previous_cell.reset();
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+            {
+                if (!stroke_has_color)
+                {
+                    if (controls.random_brush_hue)
+                    {
+                        // Stay at least one eighth of the hue wheel away from the last stroke.
+                        paint_hue = std::fmod(paint_hue + 0.125f + 0.75f * SDL_randf(), 1.0f);
+                    }
+                    else
+                    {
+                        paint_hue = controls.brush_hue;
+                    }
+                    stroke_has_color = true;
+                }
+                const SDL_Point cell = view.CellAt(x, y, config::GRID_WIDTH, config::GRID_HEIGHT);
+                AddStroke(stroke, previous_cell.value_or(cell), cell);
+                previous_cell = cell;
+            }
+        }
+        if (stroke.empty())
+            previous_cell.reset();
         imgui.EndFrame();
 
         renderer.AcquireCommandBuffer();
@@ -93,15 +170,42 @@ int main()
             return ReportError("Acquiring swapchain texture");
         }
 
-        if (renderer.GetSwapchainTexture())
+        const bool can_draw = renderer.GetSwapchainTexture() != nullptr;
+        if (controls.paused || reset_pending || !can_draw)
+            clock.Reset();
+
+        if (can_draw)
         {
-            if (!controls.paused || single_step)
-                automata.Step(commands, controls);
+            if (reset_pending)
+            {
+                automata.Clear(commands);
+                controls.paused = true;
+                reset_pending = false;
+                stroke.clear();
+                previous_cell.reset();
+            }
+            else
+            {
+                int steps = 0;
+                if (action == SimulationAction::Step)
+                    steps = 1;
+                else if (!controls.paused)
+                    steps = clock.Advance(elapsed_seconds, controls.generations_per_second);
+
+                for (int step = 0; step < steps; ++step)
+                    automata.Step(commands, controls);
+            }
+            if (!automata.Paint(commands, stroke, paint_hue))
+            {
+                // A command buffer with an acquired swapchain must be submitted.
+                renderer.SubmitCommandBuffer();
+                return ReportError("Uploading painted cells");
+            }
             imgui.Prepare(commands);
             renderer.SetColorTargetInfo(math::RGBAColor(0.0f, 0.0f, 0.0f, 1.0f));
             renderer.BeginRenderPass();
             auto* pass = renderer.GetRenderPass();
-            automata.Draw(pass);
+            automata.Draw(commands, pass, view);
             imgui.Draw(pass, commands);
             renderer.EndRenderPass();
         }

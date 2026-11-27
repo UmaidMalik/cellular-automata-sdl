@@ -1,8 +1,11 @@
 #include "automata_gpu.hpp"
 #include "config.hpp"
+#include "grid_view.hpp"
 #include "shader_loader.hpp"
 
 #include <SDL3/SDL.h>
+#include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <utility>
 
@@ -17,7 +20,9 @@ struct alignas(16) AutomataParams
     uint32_t birth_low, birth_high, survival_low, survival_high;
 };
 static_assert(sizeof(AutomataParams) == 48);
-static_assert(sizeof(GpuCell) == 8);
+// A single HSV/state texel, with a D3D12-compatible upload row pitch.
+constexpr Uint32 BRUSH_ROW_BYTES = 256;
+constexpr Uint32 BYTES_PER_TEXEL = 4 * sizeof(uint16_t);
 
 SDL_GPUGraphicsPipeline* CreatePipeline(SDL_GPUDevice* device, SDL_GPUShader* vertex,
     const char* fragment_name, Uint32 uniforms, SDL_GPUTextureFormat format)
@@ -54,6 +59,8 @@ AutomataGpu::~AutomataGpu()
         SDL_ReleaseGPUGraphicsPipeline(m_device, m_update_pipeline);
     if (m_display_pipeline)
         SDL_ReleaseGPUGraphicsPipeline(m_device, m_display_pipeline);
+    if (m_brush)
+        SDL_ReleaseGPUTransferBuffer(m_device, m_brush);
     if (m_sampler)
         SDL_ReleaseGPUSampler(m_device, m_sampler);
     if (m_next)
@@ -63,7 +70,7 @@ AutomataGpu::~AutomataGpu()
 }
 
 bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int height,
-                             int max_states, std::span<const GpuCell> seed)
+                             int max_states)
 {
     m_width = width;
     m_height = height;
@@ -75,7 +82,7 @@ bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int
         return false;
 
     constexpr auto state_format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_UNORM;
-    m_display_pipeline = CreatePipeline(m_device, vertex, "grid_sample_rgba8.frag.spv", 0, display_format);
+    m_display_pipeline = CreatePipeline(m_device, vertex, "grid_sample_rgba8.frag.spv", 1, display_format);
     if (m_display_pipeline)
         m_update_pipeline = CreatePipeline(m_device, vertex, "update_r1.frag.spv", 1, state_format);
     SDL_ReleaseGPUShader(m_device, vertex);
@@ -106,45 +113,64 @@ bool AutomataGpu::Initialize(SDL_GPUTextureFormat display_format, int width, int
     sampler.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     sampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
     m_sampler = SDL_CreateGPUSampler(m_device, &sampler);
-    return m_sampler && UploadSeed(seed);
-}
-
-bool AutomataGpu::UploadSeed(std::span<const GpuCell> seed)
-{
-    if (seed.size() != static_cast<size_t>(m_width) * m_height || seed.size() > UINT32_MAX / sizeof(GpuCell))
-        return SDL_SetError("Seed size does not match the GPU grid");
-
-    SDL_GPUTransferBufferCreateInfo info{};
-    info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-    info.size = static_cast<Uint32>(seed.size_bytes());
-    auto* buffer = SDL_CreateGPUTransferBuffer(m_device, &info);
-    if (!buffer)
+    if (!m_sampler)
         return false;
 
-    bool submitted = false;
-    if (void* data = SDL_MapGPUTransferBuffer(m_device, buffer, false))
+    const SDL_GPUTransferBufferCreateInfo brush_info{SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, BRUSH_ROW_BYTES};
+    m_brush = SDL_CreateGPUTransferBuffer(m_device, &brush_info);
+    if (!m_brush)
+        return false;
+
+    auto* commands = SDL_AcquireGPUCommandBuffer(m_device);
+    if (!commands)
+        return false;
+    Clear(commands);
+    return SDL_SubmitGPUCommandBuffer(commands);
+}
+
+void AutomataGpu::Clear(SDL_GPUCommandBuffer* commands)
+{
+    // The update pass fully overwrites the second texture before it is read.
+    SDL_GPUColorTargetInfo target{};
+    target.texture = m_current;
+    target.load_op = SDL_GPU_LOADOP_CLEAR;
+    target.store_op = SDL_GPU_STOREOP_STORE;
+    auto* pass = SDL_BeginGPURenderPass(commands, &target, 1, nullptr);
+    SDL_EndGPURenderPass(pass);
+}
+
+bool AutomataGpu::Paint(SDL_GPUCommandBuffer* commands, std::span<const SDL_Point> cells, float hue)
+{
+    if (cells.empty())
+        return true;
+
+    void* data = SDL_MapGPUTransferBuffer(m_device, m_brush, true);
+    if (!data)
+        return false;
+
+    const uint16_t texel[]{
+        static_cast<uint16_t>(std::lround(hue * UINT16_MAX)), UINT16_MAX, UINT16_MAX, UINT16_MAX
+    };
+    std::memcpy(data, texel, sizeof(texel));
+    SDL_UnmapGPUTransferBuffer(m_device, m_brush);
+
+    auto* pass = SDL_BeginGPUCopyPass(commands);
+    SDL_GPUTextureTransferInfo source{};
+    source.transfer_buffer = m_brush;
+    source.pixels_per_row = BRUSH_ROW_BYTES / BYTES_PER_TEXEL;
+    source.rows_per_layer = 1;
+
+    SDL_GPUTextureRegion destination{};
+    destination.texture = m_current;
+    destination.w = destination.h = destination.d = 1;
+    for (const auto cell : cells)
     {
-        std::memcpy(data, seed.data(), seed.size_bytes());
-        SDL_UnmapGPUTransferBuffer(m_device, buffer);
-
-        if (auto* commands = SDL_AcquireGPUCommandBuffer(m_device))
-        {
-            auto* pass = SDL_BeginGPUCopyPass(commands);
-            SDL_GPUTextureTransferInfo source{};
-            source.transfer_buffer = buffer;
-            SDL_GPUTextureRegion destination{};
-            destination.texture = m_current;
-            destination.w = m_width;
-            destination.h = m_height;
-            destination.d = 1;
-            SDL_UploadToGPUTexture(pass, &source, &destination, false);
-            SDL_EndGPUCopyPass(pass);
-            submitted = SDL_SubmitGPUCommandBuffer(commands);
-        }
+        destination.x = cell.x;
+        destination.y = cell.y;
+        SDL_UploadToGPUTexture(pass, &source, &destination, false);
     }
-
-    SDL_ReleaseGPUTransferBuffer(m_device, buffer);
-    return submitted;
+    SDL_EndGPUCopyPass(pass);
+    return true;
 }
 
 void AutomataGpu::Step(SDL_GPUCommandBuffer* commands, const SimulationControls& controls)
@@ -169,10 +195,12 @@ void AutomataGpu::Step(SDL_GPUCommandBuffer* commands, const SimulationControls&
     std::swap(m_current, m_next);
 }
 
-void AutomataGpu::Draw(SDL_GPURenderPass* pass) const
+void AutomataGpu::Draw(SDL_GPUCommandBuffer* commands, SDL_GPURenderPass* pass, const GridView& view) const
 {
     SDL_BindGPUGraphicsPipeline(pass, m_display_pipeline);
     const SDL_GPUTextureSamplerBinding binding{m_current, m_sampler};
     SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
+    const float viewport[]{view.left, view.top, 1.0f / view.zoom, 0.0f};
+    SDL_PushGPUFragmentUniformData(commands, 0, viewport, sizeof(viewport));
     SDL_DrawGPUPrimitives(pass, 3, 1, 0, 0);
 }

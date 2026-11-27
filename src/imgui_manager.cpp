@@ -1,9 +1,12 @@
 #include "config.hpp"
+#include "grid_view.hpp"
 #include "imgui_manager.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
 #include "window.hpp"
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 
 ImGuiManager::ImGuiManager(Window* window) 
@@ -170,19 +173,48 @@ void EditRule(const char* label, unsigned int& mask)
     }
     ImGui::PopID();
 }
+
+void EditColorRetention(float& retention)
+{
+    // V scales by retention each generation, so trail length is sensitive to
+    // tiny changes near 1. Space the brightness loss (1 - retention) logarithmically.
+    constexpr float loss_scale = 10000.0f;
+    const float log_range = std::log1p(loss_scale);
+    float position = 1.0f - std::log1p(loss_scale * (1.0f - retention)) / log_range;
+
+    if (ImGui::SliderFloat("Color retention", &position, 0.0f, 1.0f, "",
+                           ImGuiSliderFlags_NoInput | ImGuiSliderFlags_NoRoundToFormat))
+    {
+        retention = std::clamp(
+            1.0f - std::expm1((1.0f - position) * log_range) / std::expm1(log_range), 0.0f, 1.0f);
+    }
+    ImGui::SameLine();
+    ImGui::Text("%.4f", retention);
+}
 }
 
-bool ImGuiManager::Build(SimulationControls& controls)
+SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom)
 {
-    bool step = false;
+    auto action = SimulationAction::None;
     if (ImGui::Begin("Simulation", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
     {
         ImGui::Checkbox("Paused", &controls.paused);
         ImGui::SameLine();
         ImGui::BeginDisabled(!controls.paused);
-        step = ImGui::Button("Step");
+        if (ImGui::Button("Step"))
+            action = SimulationAction::Step;
         ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ImGui::Button("Reset"))
+        {
+            controls.paused = true;
+            action = SimulationAction::Reset;
+        }
 
+        ImGui::SliderInt("Speed", &controls.generations_per_second,
+                         SimulationControls::MIN_GENERATIONS_PER_SECOND,
+                         SimulationControls::MAX_GENERATIONS_PER_SECOND,
+                         "%d gen/s", ImGuiSliderFlags_AlwaysClamp);
         ImGui::Checkbox("Wrap edges", &controls.wrap_edges);
         bool fullscreen = (SDL_GetWindowFlags(m_window->GetSDLWindow()) & SDL_WINDOW_FULLSCREEN) != 0;
         if (ImGui::Checkbox("Fullscreen", &fullscreen))
@@ -190,11 +222,18 @@ bool ImGuiManager::Build(SimulationControls& controls)
 
         EditRule("Birth neighbors", controls.birth_mask);
         EditRule("Survival neighbors", controls.survival_mask);
-        ImGui::SliderFloat("Color retention", &controls.color_decay, 0.0f, 1.0f, "%.3f");
+        ImGui::SliderFloat("Zoom", &zoom, GridView::MIN_ZOOM, GridView::MAX_ZOOM,
+                           "%.1fx", ImGuiSliderFlags_Logarithmic | ImGuiSliderFlags_AlwaysClamp);
+        ImGui::Checkbox("Random hue per stroke", &controls.random_brush_hue);
+        ImGui::BeginDisabled(controls.random_brush_hue);
+        ImGui::SliderFloat("Brush hue", &controls.brush_hue, 0.0f, 1.0f, "%.2f",
+                           ImGuiSliderFlags_AlwaysClamp);
+        ImGui::EndDisabled();
+        EditColorRetention(controls.color_decay);
         ImGui::Text("%.1f FPS", m_imgui_io->Framerate);
     }
     ImGui::End();
-    return step;
+    return action;
 }
 
 void ImGuiManager::Prepare(SDL_GPUCommandBuffer* command_buffer)
