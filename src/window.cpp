@@ -95,12 +95,11 @@ SDL_GPUDevice* Window::GetGPUDevice() const
 
 void Window::SetFullscreen(bool enable)
 {
-    SDL_Log("Setting fullscreen: %d\n", enable);
     const Uint32 flags = SDL_GetWindowFlags(m_sdl_window);
     const bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
     if (enable == is_fullscreen)
         return;
-    SDL_Log("Toggling fullscreen mode\n");
+    SDL_Log("Setting fullscreen: %d", enable);
     SDL_SetWindowFullscreen(m_sdl_window, enable);
     SDL_SyncWindow(m_sdl_window);
 }

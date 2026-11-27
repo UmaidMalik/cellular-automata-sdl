@@ -13,16 +13,16 @@ layout(set = 2, binding = 0) uniform sampler2D uTex;
 layout(std140, set = 3, binding = 0) uniform View
 #endif
 {
-    vec4 view; // left, top, extent
+    vec4 view; // left, top, width, height
 } U;
 
 void main()
 {
     vec2 screen = vec2(vUV.x, 1.0 - vUV.y);
 #ifdef GL_ES
-    vec4 color = vec4(texture(uTex, U.view.xy + screen * U.view.z)) / 65535.0;
+    vec4 color = vec4(texture(uTex, U.view.xy + screen * U.view.zw)) / 65535.0;
 #else
-    vec4 color = texture(uTex, U.view.xy + screen * U.view.z);
+    vec4 color = texture(uTex, U.view.xy + screen * U.view.zw);
 #endif
     if (color.b == 0.0)
     {

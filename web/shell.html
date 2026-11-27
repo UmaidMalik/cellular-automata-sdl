@@ -6,7 +6,7 @@
   <title>Cellular Automata</title>
   <style>
     html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: #fff; }
-    canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+    canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; outline: none; touch-action: none; }
     #status { position: fixed; inset: 1rem auto auto 1rem; font: 1rem system-ui, sans-serif; }
   </style>
 </head>
@@ -17,6 +17,11 @@
     const canvas = document.getElementById("canvas");
     const statusMessage = document.getElementById("status");
     canvas.addEventListener("contextmenu", event => event.preventDefault());
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && document.fullscreenElement?.contains(canvas)) {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
     var Module = {
       canvas,
       postRun: [() => { statusMessage.hidden = true; }],

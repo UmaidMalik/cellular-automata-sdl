@@ -14,11 +14,12 @@ class WebAutomata
 public:
     ~WebAutomata();
     bool Initialize(int width, int height);
+    bool Resize(int width, int height);
     void Clear(SDL_GPUCommandBuffer*);
     void Step(SDL_GPUCommandBuffer*, const SimulationControls& controls);
     bool Paint(SDL_GPUCommandBuffer*, std::span<const SDL_Point> stroke,
-               float hue, int saturation, int size, Uint32 seed);
-    void Draw(int pixel_width, int pixel_height, const GridView& view);
+               float hue, int saturation, int size, Uint32 seed, bool erase);
+    void Draw(const SDL_Rect& viewport, int pixel_height, const GridView& view);
 
 private:
     std::array<GLuint, 2> m_textures{};

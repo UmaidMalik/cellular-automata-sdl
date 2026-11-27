@@ -93,8 +93,6 @@ WebAutomata::~WebAutomata()
 
 bool WebAutomata::Initialize(int width, int height)
 {
-    m_width = width;
-    m_height = height;
     m_update = BuildProgram(web_shaders::update, "Params");
     if (!m_update)
         return false;
@@ -105,23 +103,67 @@ bool WebAutomata::Initialize(int width, int height)
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_params);
     glGenBuffers(1, &m_view);
-    glGenTextures(m_textures.size(), m_textures.data());
-    glGenFramebuffers(m_targets.size(), m_targets.data());
+    return Resize(width, height);
+}
 
-    for (size_t i = 0; i < m_textures.size(); ++i)
+bool WebAutomata::Resize(int width, int height)
+{
+    if (width == m_width && height == m_height)
+        return true;
+
+    std::array<GLuint, 2> textures{};
+    std::array<GLuint, 2> targets{};
+    glGenTextures(textures.size(), textures.data());
+    glGenFramebuffers(targets.size(), targets.data());
+    const auto release_new = [&] {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDeleteFramebuffers(targets.size(), targets.data());
+        glDeleteTextures(textures.size(), textures.data());
+    };
+
+    for (size_t i = 0; i < textures.size(); ++i)
     {
-        glBindTexture(GL_TEXTURE_2D, m_textures[i]);
+        glBindTexture(GL_TEXTURE_2D, textures[i]);
         glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA16UI, width, height);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glBindFramebuffer(GL_FRAMEBUFFER, m_targets[i]);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_textures[i], 0);
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        glBindFramebuffer(GL_FRAMEBUFFER, targets[i]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[i], 0);
+        const auto error = glGetError();
+        if (error != GL_NO_ERROR || glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            release_new();
             return SDL_SetError("Could not create a %dx%d WebGL cell texture", width, height);
+        }
     }
-    Clear(nullptr);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, targets[0]);
+    constexpr GLuint dead[4]{};
+    glClearBufferuiv(GL_COLOR, 0, dead);
+    if (m_targets[m_current])
+    {
+        const auto [source, destination] = GridOverlap(m_width, m_height, width, height);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, m_targets[m_current]);
+        glBlitFramebuffer(source.x, source.y, source.x + source.w, source.y + source.h,
+                          destination.x, destination.y, destination.x + destination.w, destination.y + destination.h,
+                          GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        const auto error = glGetError();
+        if (error != GL_NO_ERROR)
+        {
+            release_new();
+            return SDL_SetError("Could not copy the cell grid (0x%x)", error);
+        }
+    }
+
+    glDeleteFramebuffers(m_targets.size(), m_targets.data());
+    glDeleteTextures(m_textures.size(), m_textures.data());
+    m_textures = textures;
+    m_targets = targets;
+    m_current = 0;
+    m_width = width;
+    m_height = height;
     return true;
 }
 
@@ -146,13 +188,13 @@ void WebAutomata::Step(SDL_GPUCommandBuffer*, const SimulationControls& controls
 }
 
 bool WebAutomata::Paint(SDL_GPUCommandBuffer*, std::span<const SDL_Point> stroke,
-                       float hue, int saturation, int size, Uint32 seed)
+                       float hue, int saturation, int size, Uint32 seed, bool erase)
 {
     if (stroke.empty())
         return true;
 
     glBindTexture(GL_TEXTURE_2D, m_textures[m_current]);
-    const auto alive = MakeBrushTexel(hue, saturation);
+    const auto alive = erase ? BrushTexel{} : MakeBrushTexel(hue, saturation);
     std::vector<BrushTexel> pixels;
     for (const auto& row : RasterizeBrush(stroke, size, m_width, m_height))
     {
@@ -167,13 +209,15 @@ bool WebAutomata::Paint(SDL_GPUCommandBuffer*, std::span<const SDL_Point> stroke
     return error == GL_NO_ERROR || SDL_SetError("WebGL brush upload failed (0x%x)", error);
 }
 
-void WebAutomata::Draw(int pixel_width, int pixel_height, const GridView& view)
+void WebAutomata::Draw(const SDL_Rect& viewport, int pixel_height, const GridView& view)
 {
-    const float viewport[]{view.left, view.top, 1.0f / view.zoom, 0.0f};
+    const float view_params[]{view.left, view.top, view.ExtentX(), view.ExtentY()};
     glBindBuffer(GL_UNIFORM_BUFFER, m_view);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(viewport), viewport, GL_DYNAMIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(view_params), view_params, GL_DYNAMIC_DRAW);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, pixel_width, pixel_height);
+    glClearColor(0.06f, 0.06f, 0.06f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glViewport(viewport.x, pixel_height - viewport.y - viewport.h, viewport.w, viewport.h);
     UseTexture(m_display, m_view, m_vao, m_textures[m_current]);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }

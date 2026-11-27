@@ -14,7 +14,8 @@ enum class SimulationAction
 {
     None,
     Step,
-    Reset
+    Reset,
+    ResizeGrid
 };
 
 class ImGuiManager
@@ -48,7 +49,8 @@ class ImGuiManager
         void LoadFonts(const char* font_path, float font_size);
         void ProcessEvent(SDL_Event* event);
         void BeginFrame();
-        SimulationAction Build(SimulationControls& controls, float& zoom);
+        SimulationAction Build(SimulationControls& controls, float& zoom, int& aspect_index,
+                               SDL_Point grid, bool resize_failed);
 #ifdef __EMSCRIPTEN__
         void Draw();
 #else

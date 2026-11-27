@@ -33,9 +33,12 @@ void EventHandler::ProcessEvents()
                     m_window->EndRun();
                 }
                 break;
-            case SDL_EVENT_WINDOW_RESIZED:
-                //m_event.window.data1;
-                //m_event.window.data2;
+            case SDL_EVENT_KEY_DOWN:
+                if (m_event.key.scancode == SDL_SCANCODE_ESCAPE && !m_event.key.repeat &&
+                    m_event.key.windowID == SDL_GetWindowID(m_window->GetSDLWindow()))
+                {
+                    m_window->SetFullscreen(false);
+                }
                 break;
         }
     }

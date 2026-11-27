@@ -22,14 +22,18 @@ struct SimulationControls
 
     static constexpr int MAX_AGING_STAGES = 255;
     static constexpr int MAX_BRUSH_SIZE = 500;
+    static constexpr int MIN_GRID_SIZE = 128;
+    static constexpr int MAX_GRID_SIZE = 3200;
     static constexpr int MIN_BRUSH_SATURATION = 25;
     static constexpr int MAX_BRUSH_SATURATION = 100;
 
     int neighbor_radius = 1;
     bool aging_enabled = false;
     int aging_stages = 6;
+    int grid_size = config::GRID_WIDTH;
     int brush_size = 1;
-    bool sync_brush_with_zoom = false;
+    bool erase_brush = false;
+    bool sync_brush_with_zoom = true;
     int generations_per_second = 60;
     bool paused = true;
     bool pause_on_draw = false;

@@ -73,6 +73,8 @@ private:
     EventHandler events{&window, &imgui};
     SimulationControls controls;
     GridView view;
+    SDL_Point grid{config::GRID_WIDTH, config::GRID_HEIGHT};
+    bool grid_resize_failed = false;
     SimulationClock clock;
     Uint64 previous_frame = 0;
     std::optional<SDL_Point> previous_cell;
@@ -91,13 +93,22 @@ SDL_AppResult Application::Initialize()
     if (!window.SetupWindow())
         return SDL_APP_FAILURE;
 
-    view.SetZoom(GridView::DEFAULT_ZOOM, 0.5f, 0.5f);
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSize(window.GetSDLWindow(), &width, &height);
+    const auto viewport = FitGridViewport(width, height, GRID_ASPECT_RATIOS[view.aspect_index]);
+    view.SetViewport(viewport, grid.x, grid.y);
+    // On narrow screens, start close enough that a one-cell brush is visible.
+    const float zoom = viewport.w > 0
+        ? std::max(GridView::DEFAULT_ZOOM, std::ceil(grid.x * view.ExtentX() / viewport.w))
+        : GridView::DEFAULT_ZOOM;
+    view.SetZoom(zoom, 0.5f, 0.5f);
     brush_screen_scale = controls.brush_size * view.zoom;
 #ifdef __EMSCRIPTEN__
-    if (!automata.Initialize(config::GRID_WIDTH, config::GRID_HEIGHT))
+    if (!automata.Initialize(grid.x, grid.y))
 #else
     automata_storage = std::make_unique<AutomataGpu>(window.GetGPUDevice());
-    if (!automata_storage->Initialize(renderer.GetSwapchainFormat(), config::GRID_WIDTH, config::GRID_HEIGHT))
+    if (!automata_storage->Initialize(renderer.GetSwapchainFormat(), grid.x, grid.y))
 #endif
         return ReportError("Initializing GPU simulation");
 
@@ -137,31 +148,62 @@ SDL_AppResult Application::Frame()
     const int previous_brush_size = controls.brush_size;
     const bool was_synced = controls.sync_brush_with_zoom;
     float zoom = view.zoom;
-    const auto action = imgui.Build(controls, zoom);
+    const auto action = imgui.Build(controls, zoom, view.aspect_index, grid, grid_resize_failed);
     reset_pending = reset_pending || action == SimulationAction::Reset;
+    const auto& io = *imgui.GetIO();
+    const ImVec2 mouse = io.MousePos;
+    const ImVec2 screen = io.DisplaySize;
+    int pixel_width = 0;
+    int pixel_height = 0;
+    SDL_GetWindowSizeInPixels(window.GetSDLWindow(), &pixel_width, &pixel_height);
+    if (action == SimulationAction::ResizeGrid)
+    {
+        const auto requested = GridSizeForAspect(controls.grid_size, GRID_ASPECT_RATIOS[view.aspect_index],
+            {static_cast<int>(screen.x), static_cast<int>(screen.y)});
+#ifdef __EMSCRIPTEN__
+        grid_resize_failed = !automata.Resize(requested.x, requested.y);
+#else
+        grid_resize_failed = !automata_storage->Resize(requested.x, requested.y);
+#endif
+        if (grid_resize_failed)
+            logger::Error("Resizing grid: {}", SDL_GetError());
+        else
+        {
+            grid = requested;
+            previous_cell.reset();
+            clock.Reset();
+            previous_frame = SDL_GetTicksNS();
+        }
+    }
+    const SDL_Rect viewport = FitGridViewport(pixel_width, pixel_height,
+                                              GRID_ASPECT_RATIOS[view.aspect_index]);
+    if (view.SetViewport(viewport, grid.x, grid.y))
+        previous_cell.reset();
     if (zoom != view.zoom)
     {
         view.SetZoom(zoom, 0.5f, 0.5f);
         previous_cell.reset();
     }
-
-    const auto& io = *imgui.GetIO();
-    const ImVec2 mouse = io.MousePos;
-    const ImVec2 screen = io.DisplaySize;
+    const bool has_viewport = viewport.w > 0 && viewport.h > 0 && screen.x > 0.0f && screen.y > 0.0f;
+    const ImVec2 pixel_scale = has_viewport ? ImVec2(pixel_width / screen.x, pixel_height / screen.y) : ImVec2();
+    const ImVec2 pointer = has_viewport
+        ? ImVec2((mouse.x * pixel_scale.x - viewport.x) / viewport.w,
+                 (mouse.y * pixel_scale.y - viewport.y) / viewport.h)
+        : ImVec2(-1.0f, -1.0f);
+    const bool erase = controls.erase_brush || (!io.WantTextInput && SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_X]);
     stroke.clear();
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         stroke_started = false;
 
     const bool over_grid = !io.WantCaptureMouse && !ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) &&
-        mouse.x >= 0.0f && mouse.y >= 0.0f &&
-        mouse.x < screen.x && mouse.y < screen.y;
+        pointer.x >= 0.0f && pointer.y >= 0.0f && pointer.x < 1.0f && pointer.y < 1.0f;
 
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Right))
         panning = false;
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
         panning = over_grid;
-    else if (panning && screen.x > 0.0f && screen.y > 0.0f)
-        view.Pan(io.MouseDelta.x / screen.x, io.MouseDelta.y / screen.y);
+    else if (panning && has_viewport)
+        view.Pan(io.MouseDelta.x * pixel_scale.x / viewport.w, io.MouseDelta.y * pixel_scale.y / viewport.h);
 
     const bool can_edit_grid = over_grid && !panning;
     if (can_edit_grid)
@@ -177,7 +219,7 @@ SDL_AppResult Application::Frame()
         else if (io.MouseWheel != 0.0f)
         {
             view.SetZoom(view.zoom * std::pow(1.2f, io.MouseWheel),
-                         mouse.x / screen.x, mouse.y / screen.y);
+                         pointer.x, pointer.y);
             previous_cell.reset();
         }
     }
@@ -199,7 +241,7 @@ SDL_AppResult Application::Frame()
             previous_cell.reset();
         if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
         {
-            if (!stroke_started)
+            if (!erase && !stroke_started)
             {
                 if (controls.random_brush_hue)
                 {
@@ -213,8 +255,8 @@ SDL_AppResult Application::Frame()
                 stroke_seed = SDL_rand_bits();
                 stroke_started = true;
             }
-            const SDL_Point cell = view.CellAt(mouse.x / screen.x, mouse.y / screen.y,
-                                               config::GRID_WIDTH, config::GRID_HEIGHT);
+            const SDL_Point cell = view.CellAt(pointer.x, pointer.y,
+                                               grid.x, grid.y);
             AddStroke(stroke, previous_cell.value_or(cell), cell);
             previous_cell = cell;
         }
@@ -224,10 +266,7 @@ SDL_AppResult Application::Frame()
     imgui.EndFrame();
 
 #ifdef __EMSCRIPTEN__
-    int pixel_width = 0;
-    int pixel_height = 0;
-    const bool can_draw = SDL_GetWindowSizeInPixels(window.GetSDLWindow(), &pixel_width, &pixel_height) &&
-        pixel_width > 0 && pixel_height > 0;
+    const bool can_draw = has_viewport;
     SDL_GPUCommandBuffer* commands = nullptr;
 #else
     auto& automata = *automata_storage;
@@ -241,7 +280,7 @@ SDL_AppResult Application::Frame()
         return ReportError("Acquiring swapchain texture");
     }
 
-    const bool can_draw = renderer.GetSwapchainTexture() != nullptr;
+    const bool can_draw = has_viewport && renderer.GetSwapchainTexture() != nullptr;
 #endif
     const bool paused = controls.paused || (controls.pause_on_draw && !stroke.empty());
     if (paused || reset_pending || !can_draw)
@@ -262,14 +301,14 @@ SDL_AppResult Application::Frame()
             int steps = 0;
             if (action == SimulationAction::Step)
                 steps = 1;
-            else if (!paused)
+            else if (!paused && action != SimulationAction::ResizeGrid)
                 steps = clock.Advance(elapsed_seconds, controls.generations_per_second);
 
             for (int step = 0; step < steps; ++step)
                 automata.Step(commands, controls);
         }
         if (!automata.Paint(commands, stroke, paint_hue, controls.brush_saturation,
-                            controls.brush_size, stroke_seed))
+                            controls.brush_size, stroke_seed, erase))
         {
 #ifndef __EMSCRIPTEN__
             // A command buffer with an acquired swapchain must be submitted.
@@ -278,15 +317,20 @@ SDL_AppResult Application::Frame()
             return ReportError("Uploading painted cells");
         }
 #ifdef __EMSCRIPTEN__
-        automata.Draw(pixel_width, pixel_height, view);
+        automata.Draw(viewport, pixel_height, view);
         imgui.Draw();
         if (!SDL_GL_SwapWindow(window.GetSDLWindow()))
             return ReportError("Presenting the WebGL frame");
 #else
         imgui.Prepare(commands);
-        renderer.SetColorTargetInfo(math::RGBAColor(0.0f, 0.0f, 0.0f, 1.0f));
+        renderer.SetColorTargetInfo(math::RGBAColor(0.06f, 0.06f, 0.06f, 1.0f));
         renderer.BeginRenderPass();
         auto* pass = renderer.GetRenderPass();
+        const SDL_GPUViewport grid_viewport{
+            static_cast<float>(viewport.x), static_cast<float>(viewport.y),
+            static_cast<float>(viewport.w), static_cast<float>(viewport.h), 0.0f, 1.0f
+        };
+        SDL_SetGPUViewport(pass, &grid_viewport);
         automata.Draw(commands, pass, view);
         imgui.Draw(pass, commands);
         renderer.EndRenderPass();
