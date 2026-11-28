@@ -384,7 +384,7 @@ void EditColorRetention(float& retention, bool mobile_layout)
 }
 
 SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, int& aspect_index,
-                                     SDL_Point grid, int max_grid_size, bool resize_failed)
+                                     SDL_Point grid, int max_grid_size, bool resize_failed, bool protection_activated)
 {
     auto action = SimulationAction::None;
     const Uint64 now = SDL_GetTicks();
@@ -509,6 +509,11 @@ SimulationAction ImGuiManager::Build(SimulationControls& controls, float& zoom, 
 
         ImGui::Checkbox("Pause on draw", &controls.pause_on_draw);
         ImGui::SetItemTooltip("Pause automatic generations while painting.");
+        ImGui::Checkbox("Unsafe simulation mode", &controls.unrestricted_simulation);
+        ImGui::SetItemTooltip("Disables automatic recovery from low FPS and allows more generations per frame.");
+        if (protection_activated)
+            ImGui::TextWrapped(resize_failed ? "Protection paused the simulation. The grid could not be reduced."
+                                             : "Protection restored Conway and the default grid, then paused.");
         ImGui::SliderInt("Speed", &controls.generations_per_second,
                          SimulationControls::MIN_GENERATIONS_PER_SECOND,
                          SimulationControls::MAX_GENERATIONS_PER_SECOND,

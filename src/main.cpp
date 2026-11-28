@@ -90,9 +90,13 @@ private:
     float previous_cell_pixels = 0.0f;
 #endif
     SDL_Point grid{config::GRID_WIDTH, config::GRID_HEIGHT};
+    SDL_Point startup_grid{};
     int max_grid_size = SimulationControls::MAX_DESKTOP_GRID_SIZE;
     bool grid_resize_failed = false;
     SimulationClock clock;
+    LowFrameRateWatchdog watchdog;
+    bool protection_activated = false;
+    bool simulation_running = false;
     Uint64 previous_frame = 0;
     std::optional<SDL_Point> previous_cell;
     std::optional<SDL_Point> pending_touch_cell;
@@ -130,6 +134,8 @@ SDL_AppResult Application::Initialize()
         grid = {max_grid_size, std::max(1, config::GRID_HEIGHT * max_grid_size / config::GRID_WIDTH)};
     }
 #endif
+
+    startup_grid = grid;
 
     int width = 0;
     int height = 0;
@@ -177,21 +183,50 @@ SDL_AppResult Application::Frame()
         pending_touch_cell.reset();
         stroke_started = false;
         clock.Reset();
+        watchdog.Reset();
+        simulation_running = false;
 #ifndef __EMSCRIPTEN__
         SDL_Delay(10);
 #endif
         return SDL_APP_CONTINUE;
     }
 
+    bool visible = true;
 #ifdef __EMSCRIPTEN__
     window.SyncBrowserCanvas();
+    visible = EM_ASM_INT({ return !document.hidden; });
 #endif
     imgui.BeginFrame();
     const float previous_zoom = view.zoom;
     const int previous_brush_size = controls.brush_size;
     const bool was_synced = controls.sync_brush_with_zoom;
     float zoom = view.zoom;
-    const auto action = imgui.Build(controls, zoom, view.aspect_index, grid, max_grid_size, grid_resize_failed);
+    const bool was_unrestricted = controls.unrestricted_simulation;
+    const bool stalled = watchdog.Update(elapsed_seconds, visible && simulation_running && !was_unrestricted);
+    const auto action = imgui.Build(controls, zoom, view.aspect_index, grid, max_grid_size,
+                                    grid_resize_failed, protection_activated);
+    if (!controls.paused || controls.unrestricted_simulation)
+        protection_activated = false;
+    const bool protected_mode = !controls.unrestricted_simulation;
+    const bool recover = protected_mode && stalled;
+    if (recover)
+    {
+        const SimulationControls defaults;
+        controls.birth_mask = defaults.birth_mask;
+        controls.survival_mask = defaults.survival_mask;
+        controls.neighbor_radius = defaults.neighbor_radius;
+        controls.neighborhood_shape = defaults.neighborhood_shape;
+        controls.aging_enabled = defaults.aging_enabled;
+        controls.aging_stages = defaults.aging_stages;
+        controls.generations_per_second = defaults.generations_per_second;
+        controls.wrap_edges = defaults.wrap_edges;
+        controls.grid_size = startup_grid.x;
+        controls.paused = true;
+        protection_activated = true;
+        watchdog.Reset();
+        pending_touch_cell.reset();
+        stroke_started = false;
+    }
     reset_pending = reset_pending || action == SimulationAction::Reset;
     const auto& io = *imgui.GetIO();
     const ImVec2 mouse = io.MousePos;
@@ -199,10 +234,11 @@ SDL_AppResult Application::Frame()
     int pixel_width = 0;
     int pixel_height = 0;
     SDL_GetWindowSizeInPixels(window.GetSDLWindow(), &pixel_width, &pixel_height);
-    if (action == SimulationAction::ResizeGrid)
+    if (recover || action == SimulationAction::ResizeGrid)
     {
-        const auto requested = GridSizeForAspect(controls.grid_size, GRID_ASPECT_RATIOS[view.aspect_index],
+        const auto requested = recover ? startup_grid : GridSizeForAspect(controls.grid_size, GRID_ASPECT_RATIOS[view.aspect_index],
             {static_cast<int>(screen.x), static_cast<int>(screen.y)});
+        watchdog.Reset();
 #ifdef __EMSCRIPTEN__
         grid_resize_failed = !automata.Resize(requested.x, requested.y);
 #else
@@ -420,7 +456,8 @@ SDL_AppResult Application::Frame()
 
     const bool can_draw = has_viewport && renderer.GetSwapchainTexture() != nullptr;
 #endif
-    const bool paused = controls.paused || (controls.pause_on_draw && !stroke.empty());
+    const bool paused = controls.paused || !visible || (controls.pause_on_draw && !stroke.empty());
+    simulation_running = can_draw && !paused && !reset_pending && action != SimulationAction::ResizeGrid;
     if (paused || reset_pending || !can_draw)
         clock.Reset();
 
@@ -436,10 +473,10 @@ SDL_AppResult Application::Frame()
         else
         {
             int steps = 0;
-            if (action == SimulationAction::Step)
+            if (action == SimulationAction::Step && !recover)
                 steps = 1;
             else if (!paused && action != SimulationAction::ResizeGrid)
-                steps = clock.Advance(elapsed_seconds, controls.generations_per_second);
+                steps = clock.Advance(elapsed_seconds, controls.generations_per_second, protected_mode ? 1 : 4);
 
             for (int step = 0; step < steps; ++step)
                 automata.Step(commands, controls);

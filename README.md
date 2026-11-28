@@ -84,8 +84,7 @@ centered and preserves the apparent cell size when you rotate your phone. Use **
 follow the current window size. Auto is the default. Aspect changes crop the
 visible grid while keeping cells square. **Grid size** sets the length of
 the longer side from 128 to 3,200 cells on mobile browsers and up to 12,000 cells
-on desktop. The browser's WebGL limits can reduce the maximum, and larger grids
-require more GPU memory. The other side follows the selected
+on desktop. WebGL limits can reduce the maximum further. The other side follows the selected
 aspect ratio. **Apply grid size** preserves the overlapping center of the
 grid, clears newly added space, and drops any cells outside the new edges.
 **Brush size**
@@ -109,6 +108,13 @@ automatic generations while painting. Releasing the brush resumes a running
 simulation. Use **Speed** to set a target from
 1 to 120 generations per second. The actual rate depends on GPU work and how
 often the window can present.
+
+With **Unsafe simulation mode** off, the app runs at most one automatic
+generation per rendered frame. If the running simulation stays below 15 FPS for
+three seconds, it restores Conway's Game of Life, the startup grid size, and
+the default simulation speed, then pauses. The overlapping center of the grid
+is preserved if the resize succeeds. This setting resets to protected mode
+each time the app starts.
 
 ## Browser build
 
