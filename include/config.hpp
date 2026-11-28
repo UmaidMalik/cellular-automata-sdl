@@ -46,6 +46,7 @@ struct SimulationControls
     bool sync_brush_with_zoom = true;
     int generations_per_second = 60;
     bool paused = false;
+    bool unrestricted_simulation = false;
     bool pause_on_draw = false;
     bool wrap_edges = true;
     bool random_brush_hue = true;
